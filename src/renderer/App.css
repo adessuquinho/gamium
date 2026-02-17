@@ -1766,3 +1766,109 @@ input, button, textarea {
   background: var(--red);
   color: white;
 }
+/* ─── Auto-Update Notifications ─────────────────────────────────────────── */
+.update-notification {
+  position: fixed;
+  bottom: 80px;
+  right: 20px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 16px;
+  min-width: 320px;
+  max-width: 400px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  z-index: 10000;
+  animation: slideInFromRight 0.3s ease-out;
+}
+
+@keyframes slideInFromRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.update-notification.update-ready {
+  border-color: var(--green);
+}
+
+.update-notification.update-error {
+  border-color: var(--red);
+}
+
+.update-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.update-content strong {
+  color: var(--text-primary);
+  font-size: 15px;
+}
+
+.update-content p {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin: 0;
+}
+
+.update-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 8px;
+  background: var(--bg-primary);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+.update-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.update-actions .btn-primary,
+.update-actions .btn-secondary {
+  flex: 1;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.update-actions .btn-primary {
+  background: var(--accent);
+  color: white;
+}
+
+.update-actions .btn-primary:hover {
+  background: var(--accent-hover);
+}
+
+.update-actions .btn-secondary {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.update-actions .btn-secondary:hover {
+  background: var(--bg-primary);
+}

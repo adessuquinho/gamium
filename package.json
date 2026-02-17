@@ -3,15 +3,21 @@
   "version": "1.0.0",
   "description": "Gamium — Plataforma de comunicação descentralizada, criptografada e P2P",
   "main": "dist-electron/index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SEU-USUARIO/gamium.git"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "package": "vite build && electron-builder --config electron-builder.json --publish never",
+    "publish": "vite build && electron-builder --config electron-builder.json --publish always",
     "start": "electron ."
   },
-  "author": "Gamium",
+  "author": "adessuquinho",
   "license": "MIT",
   "dependencies": {
+    "electron-updater": "^6.7.3",
     "gun": "^0.2020.1240",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

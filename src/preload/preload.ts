@@ -24,4 +24,26 @@ contextBridge.exposeInMainWorld('gamiumAPI', {
 
   // ─── Clipboard ────────────────────────────────────────────────────────────
   copyToClipboard: (text: string) => ipcRenderer.invoke('clipboard:write', text),
+
+  // ─── Auto-Update ─────────────────────────────────────────────────────────────
+  updates: {
+    checkForUpdates: () => ipcRenderer.invoke('app:checkForUpdates'),
+    downloadUpdate: () => ipcRenderer.invoke('app:downloadUpdate'),
+    installUpdate: () => ipcRenderer.invoke('app:installUpdate'),
+    onUpdateAvailable: (callback: (info: any) => void) => {
+      ipcRenderer.on('update:available', (_event, info) => callback(info))
+    },
+    onUpdateNotAvailable: (callback: () => void) => {
+      ipcRenderer.on('update:not-available', () => callback())
+    },
+    onDownloadProgress: (callback: (progress: any) => void) => {
+      ipcRenderer.on('update:progress', (_event, progress) => callback(progress))
+    },
+    onUpdateDownloaded: (callback: (info: any) => void) => {
+      ipcRenderer.on('update:downloaded', (_event, info) => callback(info))
+    },
+    onUpdateError: (callback: (error: any) => void) => {
+      ipcRenderer.on('update:error', (_event, error) => callback(error))
+    },
+  },
 })

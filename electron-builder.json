@@ -9,9 +9,16 @@
     "dist/**/*",
     "dist-electron/**/*"
   ],
+  "publish": {
+    "provider": "github",
+    "owner": "adessuquinho",
+    "repo": "gamium",
+    "releaseType": "release"
+  },
   "win": {
     "target": ["nsis"],
-    "icon": "resources/icon.png"
+    "icon": "resources/icon.png",
+    "publisherName": "adessuquinho"
   },
   "nsis": {
     "oneClick": false,
@@ -21,10 +28,12 @@
   },
   "linux": {
     "target": ["AppImage", "deb"],
-    "icon": "resources/icon.png"
+    "icon": "resources/icon.png",
+    "category": "Network"
   },
   "mac": {
     "target": ["dmg"],
-    "icon": "resources/icon.png"
+    "icon": "resources/icon.png",
+    "category": "public.app-category.social-networking"
   }
 }

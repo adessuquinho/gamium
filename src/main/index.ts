@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, desktopCapturer, session, Tray, Menu, nativeImage, clipboard } from 'electron'
+import { autoUpdater } from 'electron-updater'
 import path from 'path'
 import fs from 'fs'
 import crypto from 'crypto'
@@ -165,6 +166,89 @@ ipcMain.handle('clipboard:write', (_event, text: string) => {
   return true
 })
 
+ipcMain.handle('app:checkForUpdates', async () => {
+  try {
+    const result = await autoUpdater.checkForUpdates()
+    return { available: result !== null, version: result?.updateInfo?.version }
+  } catch (error) {
+    return { available: false, error: String(error) }
+  }
+})
+
+// ─── Auto-Update ────────────────────────────────────────────────────────────────
+function setupAutoUpdater() {
+  // Configurações
+  autoUpdater.autoDownload = false
+  autoUpdater.autoInstallOnAppQuit = true
+
+  // Logs (em desenvolvimento, aparecem no console)
+  autoUpdater.logger = console
+
+  // Evento: update disponível
+  autoUpdater.on('update-available', (info) => {
+    mainWindow?.webContents.send('update:available', {
+      version: info.version,
+      releaseDate: info.releaseDate,
+      releaseNotes: info.releaseNotes,
+    })
+  })
+
+  // Evento: update não disponível
+  autoUpdater.on('update-not-available', () => {
+    mainWindow?.webContents.send('update:not-available')
+  })
+
+  // Evento: progresso do download
+  autoUpdater.on('download-progress', (progress) => {
+    mainWindow?.webContents.send('update:progress', {
+      percent: progress.percent,
+      transferred: progress.transferred,
+      total: progress.total,
+    })
+  })
+
+  // Evento: download concluído
+  autoUpdater.on('update-downloaded', (info) => {
+    mainWindow?.webContents.send('update:downloaded', {
+      version: info.version,
+    })
+  })
+
+  // Evento: erro
+  autoUpdater.on('error', (error) => {
+    mainWindow?.webContents.send('update:error', {
+      message: error.message,
+    })
+  })
+
+  // Verificar updates 30 segundos após abrir (apenas em produção)
+  if (app.isPackaged) {
+    setTimeout(() => {
+      autoUpdater.checkForUpdates()
+    }, 30000)
+
+    // Verificar a cada 12 horas
+    setInterval(() => {
+      autoUpdater.checkForUpdates()
+    }, 12 * 60 * 60 * 1000)
+  }
+}
+
+// Handler para baixar update quando o usuário aceitar
+ipcMain.handle('app:downloadUpdate', async () => {
+  try {
+    await autoUpdater.downloadUpdate()
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: String(error) }
+  }
+})
+
+// Handler para instalar update após download
+ipcMain.handle('app:installUpdate', () => {
+  autoUpdater.quitAndInstall(false, true)
+})
+
 // ─── Bandeja do sistema (Tray) ──────────────────────────────────────────────────
 function createTray() {
   const iconPath = getIconPath()
@@ -211,6 +295,7 @@ function createTray() {
 app.whenReady().then(() => {
   createWindow()
   createTray()
+  setupAutoUpdater()
 })
 
 app.on('before-quit', () => {

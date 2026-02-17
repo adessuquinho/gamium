@@ -13,6 +13,36 @@ export interface GamiumAPI {
     close: () => Promise<void>
   }
   copyToClipboard: (text: string) => Promise<boolean>
+  updates: {
+    checkForUpdates: () => Promise<{ available: boolean; version?: string; error?: string }>
+    downloadUpdate: () => Promise<{ success: boolean; error?: string }>
+    installUpdate: () => Promise<void>
+    onUpdateAvailable: (callback: (info: UpdateInfo) => void) => void
+    onUpdateNotAvailable: (callback: () => void) => void
+    onDownloadProgress: (callback: (progress: UpdateProgress) => void) => void
+    onUpdateDownloaded: (callback: (info: UpdateDownloadedInfo) => void) => void
+    onUpdateError: (callback: (error: UpdateError) => void) => void
+  }
+}
+
+export interface UpdateInfo {
+  version: string
+  releaseDate: string
+  releaseNotes?: string
+}
+
+export interface UpdateProgress {
+  percent: number
+  transferred: number
+  total: number
+}
+
+export interface UpdateDownloadedInfo {
+  version: string
+}
+
+export interface UpdateError {
+  message: string
 }
 
 export interface DesktopSource {
