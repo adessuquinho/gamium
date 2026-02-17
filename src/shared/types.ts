@@ -63,6 +63,7 @@ export interface UserIdentity {
   alias: string
   pub: string   // chave pública (identifica o usuário na rede)
   epub: string  // chave pública de criptografia (ECDH)
+  recoveryPhrase?: string  // frase de recuperação (12 palavras)
 }
 
 export interface Friend {

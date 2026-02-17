@@ -17,6 +17,7 @@
   "author": "adessuquinho",
   "license": "MIT",
   "dependencies": {
+    "bip39": "^3.1.0",
     "electron-updater": "^6.7.3",
     "gun": "^0.2020.1240",
     "react": "^18.2.0",

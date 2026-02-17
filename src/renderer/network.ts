@@ -10,6 +10,7 @@
 
 import Gun from 'gun'
 import 'gun/sea'
+import { generateMnemonic, mnemonicToSeed, validateMnemonic } from 'bip39'
 import type { Message, Server, Channel, Group, FriendRequest } from '../shared/types'
 import { useAppStore } from './store'
 
@@ -55,8 +56,8 @@ export function getUser() {
 
 // ─── Autenticação ───────────────────────────────────────────────────────────────
 
-export async function register(alias: string, password: string): Promise<{ ok: boolean; error?: string; pub?: string }> {
-  return new Promise((resolve) => {
+export async function register(alias: string, password: string): Promise<{ ok: boolean; error?: string; pub?: string; recoveryPhrase?: string }> {
+  return new Promise(async (resolve) => {
     user.create(alias, password, (ack: any) => {
       if (ack.err) {
         resolve({ ok: false, error: ack.err })
@@ -67,7 +68,14 @@ export async function register(alias: string, password: string): Promise<{ ok: b
             resolve({ ok: false, error: authAck.err })
           } else {
             setupUserProfile(alias)
-            resolve({ ok: true, pub: user.is?.pub })
+            // Gera recovery phrase
+            const recoveryPhrase = generateRecoveryPhrase()
+            saveRecoveryPhrase(recoveryPhrase)
+            resolve({ 
+              ok: true, 
+              pub: user.is?.pub,
+              recoveryPhrase 
+            })
           }
         })
       }
@@ -87,6 +95,36 @@ export async function login(alias: string, password: string): Promise<{ ok: bool
   })
 }
 
+/**
+ * Restaura uma conta usando a recovery phrase (12 palavras)
+ * Valida o mnemonic e cria uma senha derivada
+ */
+export async function restoreWithRecoveryPhrase(
+  alias: string, 
+  mnemonic: string
+): Promise<{ ok: boolean; error?: string; pub?: string }> {
+  // Valida se o mnemonic é válido
+  if (!validateMnemonic(mnemonic)) {
+    return { ok: false, error: 'Frase de recuperação inválida. Verifique as 12 palavras.' }
+  }
+
+  // Gera seed do mnemonic
+  const seed = await mnemonicToSeed(mnemonic)
+  // Converte seed (Buffer) em string hexadecimal e usa como senha
+  const derivedPassword = seed.toString('hex').substring(0, 64)
+
+  return new Promise((resolve) => {
+    user.auth(alias, derivedPassword, (ack: any) => {
+      if (ack.err) {
+        resolve({ ok: false, error: 'Conta não encontrada ou dados incorretos.' })
+      } else {
+        resolve({ ok: true, pub: user.is?.pub })
+      }
+    })
+  })
+}
+
+
 export function logout() {
   user.leave()
   useAppStore.getState().reset()
@@ -105,6 +143,51 @@ export function getCurrentUser(): { pub: string; epub: string; alias: string } |
     pub: user.is.pub,
     epub: user.is.epub,
     alias: user.is.alias,
+  }
+}
+
+// ─── Recovery Phrase (Recuperação de Conta) ─────────────────────────────────────
+
+/**
+ * Gera uma frase mnemônica de 12 palavras para recuperação de conta
+ * Segue o padrão BIP39 (Bitcoin Improvement Proposal)
+ */
+export function generateRecoveryPhrase(): string {
+  return generateMnemonic(128) // 128 bits = 12 palavras
+}
+
+/**
+ * Salva a recovery phrase no localStorage (local, não na rede)
+ * ⚠️ IMPORTANTES: O usuário deve guardar isso em um lugar seguro!
+ */
+export function saveRecoveryPhrase(phrase: string): void {
+  try {
+    localStorage.setItem('gamium_recovery_phrase', phrase)
+  } catch (err) {
+    console.error('Erro ao salvar recovery phrase:', err)
+  }
+}
+
+/**
+ * Recupera a recovery phrase do localStorage
+ */
+export function getRecoveryPhrase(): string | null {
+  try {
+    return localStorage.getItem('gamium_recovery_phrase')
+  } catch (err) {
+    console.error('Erro ao recuperar recovery phrase:', err)
+    return null
+  }
+}
+
+/**
+ * Deleta a recovery phrase do localStorage (após usuario confirmar que salvou)
+ */
+export function clearRecoveryPhrase(): void {
+  try {
+    localStorage.removeItem('gamium_recovery_phrase')
+  } catch (err) {
+    console.error('Erro ao deletar recovery phrase:', err)
   }
 }
 

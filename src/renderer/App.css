@@ -1872,3 +1872,214 @@ input, button, textarea {
 .update-actions .btn-secondary:hover {
   background: var(--bg-primary);
 }
+
+/* ─── Recovery Phrase Screen ────────────────────────────────────────────────── */
+.recovery-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  animation: fadeIn 0.3s ease;
+}
+
+.recovery-card {
+  background: var(--bg-secondary);
+  border: 2px solid var(--accent);
+  border-radius: 12px;
+  padding: 32px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.recovery-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.recovery-header h2 {
+  color: var(--text-primary);
+  font-size: 24px;
+  margin: 0 0 8px;
+}
+
+.recovery-header p {
+  color: var(--text-secondary);
+  font-size: 14px;
+  margin: 0;
+}
+
+.recovery-warning {
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+.recovery-warning strong {
+  color: var(--accent);
+  display: block;
+  margin-bottom: 8px;
+}
+
+.recovery-warning ul {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.recovery-warning li {
+  margin: 4px 0;
+}
+
+.recovery-phrase-box {
+  background: var(--bg-primary);
+  border: 1px solid var(--bg-tertiary);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.phrase-words {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.phrase-word {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--bg-tertiary);
+  border-radius: 6px;
+  padding: 10px;
+  font-family: monospace;
+}
+
+.word-index {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  min-width: 20px;
+}
+
+.word-text {
+  color: var(--accent);
+  font-weight: 500;
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.recovery-actions {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.recovery-actions .btn-secondary {
+  flex: 1;
+}
+
+.recovery-confirmation {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.checkbox-label input {
+  margin-top: 2px;
+  cursor: pointer;
+}
+
+.checkbox-label span {
+  line-height: 1.5;
+}
+
+.btn-recovery-done {
+  width: 100%;
+}
+
+.btn-recovery-done:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-recovery-done:not(:disabled):hover {
+  background: var(--accent-hover);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ─── Recovery Textarea ─────────────────────────────────────────────────── */
+.recovery-textarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--bg-tertiary);
+  color: var(--text-primary);
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.recovery-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.1);
+}
+
+.recovery-textarea::placeholder {
+  color: var(--text-tertiary);
+}
+
+.form-hint {
+  display: block;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+/* ─── Login Links ───────────────────────────────────────────────────── */
+.login-links {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.btn-link.secondary {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  opacity: 0.8;
+}
+
+.btn-link.secondary:hover {
+  opacity: 1;
+  color: var(--accent);
+}
