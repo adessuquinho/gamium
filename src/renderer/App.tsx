@@ -49,6 +49,31 @@ export default function App() {
   }, [])
 
   useEffect(() => {
+    let cancelled = false
+
+    async function checkUpdatesOnStart() {
+      const result = await window.gamiumAPI.updates.checkForUpdates()
+      if (cancelled) return
+
+      if (result?.available) {
+        setUpdateAvailable(true)
+        if (result?.version) {
+          setUpdateVersion(result.version)
+        }
+      } else if (result?.error) {
+        setUpdateError(result.error)
+        setTimeout(() => setUpdateError(''), 5000)
+      }
+    }
+
+    const timer = setTimeout(checkUpdatesOnStart, 2000)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [])
+
+  useEffect(() => {
     if (!updateDownloaded || !installPending) return
     const timer = setTimeout(() => {
       window.gamiumAPI.updates.installUpdate()
