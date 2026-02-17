@@ -43,7 +43,7 @@ Gamium é uma aplicação de chat, mas completamente descentralizada usando Gun.
 ### Usuários
 
 **Windows:**
-1. Baixe `Gamium Setup x.x.x.exe` da [página de Releases](https://github.com/SEU-USUARIO/gamium/releases)
+1. Baixe `Gamium Setup x.x.x.exe` da [página de Releases](https://github.com/adessuquinho/gamium/releases)
 2. Execute o instalador
 3. Crie sua conta ou faça login
 
