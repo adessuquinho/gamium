@@ -336,6 +336,7 @@ async function fetchRecoveryBundle(alias: string): Promise<RecoveryBundle | null
 export async function sendFriendRequest(targetPub: string) {
   const me = getCurrentUser()
   if (!me) return
+  if (targetPub === me.pub) return
 
   // Busca o epub do alvo para derivar segredo compartilhado
   const targetUser = gun.user(targetPub)
@@ -353,6 +354,7 @@ export function listenFriendRequests(callback: (req: FriendRequest) => void) {
   if (!me) return
 
   gun.get('friend_requests').get(me.pub).map().on((data: any, key: string) => {
+    if (key === me.pub || data?.from === me.pub) return
     if (data && data.from && data.alias) {
       callback({
         from: data.from,
@@ -366,6 +368,7 @@ export function listenFriendRequests(callback: (req: FriendRequest) => void) {
 export async function acceptFriendRequest(friendPub: string) {
   const me = getCurrentUser()
   if (!me) return
+  if (friendPub === me.pub) return
 
   // Busca alias do amigo
   const friendAlias = await new Promise<string>((resolve) => {
@@ -401,8 +404,15 @@ export async function removeFriend(friendPub: string) {
 
 export function listenFriends(callback: (friends: Array<{ pub: string; alias: string; addedAt: number }>) => void) {
   const friends: Record<string, { pub: string; alias: string; addedAt: number }> = {}
+  const me = getCurrentUser()
 
   user.get('friends').map().on((data: any, key: string) => {
+    if (data?.pub === me?.pub || key === me?.pub) {
+      delete friends[key]
+      callback(Object.values(friends))
+      return
+    }
+
     if (data && data.pub) {
       friends[key] = { pub: data.pub, alias: data.alias, addedAt: data.addedAt }
     } else {
@@ -412,9 +422,9 @@ export function listenFriends(callback: (friends: Array<{ pub: string; alias: st
   })
 
   // Também escuta amigos adicionados externamente
-  const me = getCurrentUser()
   if (me) {
     gun.get('friend_lists').get(me.pub).map().on((data: any, key: string) => {
+      if (data?.pub === me.pub || key === me.pub) return
       if (data && data.pub && !friends[key]) {
         // Aceita automaticamente (foi aceito pelo outro lado)
         user.get('friends').get(key).put({
