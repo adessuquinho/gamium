@@ -1,11 +1,11 @@
 {
   "name": "gamium",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Gamium — Plataforma de comunicação descentralizada, criptografada e P2P",
   "main": "dist-electron/index.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/SEU-USUARIO/gamium.git"
+    "url": "https://github.com/adessuquinho/gamium.git"
   },
   "scripts": {
     "dev": "vite",
