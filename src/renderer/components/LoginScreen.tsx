@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { register, login, getCurrentUser, restoreWithRecoveryPhrase } from '../network'
+import { register, login, getCurrentUser, restoreWithRecoveryPhrase, getRecoveryPhrase } from '../network'
 import { useAppStore } from '../store'
 
 export default function LoginScreen() {
@@ -110,6 +110,16 @@ export default function LoginScreen() {
         epub: currentUser.epub,
       })
     }
+  }
+
+  function showSavedRecoveryPhrase() {
+    const savedPhrase = getRecoveryPhrase()
+    if (!savedPhrase) {
+      setError('Nenhuma recovery phrase foi encontrada neste dispositivo.')
+      return
+    }
+    setRecoveryPhrase(savedPhrase)
+    setError('')
   }
 
   return (
@@ -265,16 +275,25 @@ export default function LoginScreen() {
             </button>
             
             {!isRegister && !isRestore && (
-              <button
-                type="button"
-                className="btn-link secondary"
-                onClick={() => {
-                  setIsRestore(true)
-                  setError('')
-                }}
-              >
-                🔑 Restaurar com Recovery Phrase
-              </button>
+              <>
+                <button
+                  type="button"
+                  className="btn-link secondary"
+                  onClick={() => {
+                    setIsRestore(true)
+                    setError('')
+                  }}
+                >
+                  🔑 Restaurar com Recovery Phrase
+                </button>
+                <button
+                  type="button"
+                  className="btn-link secondary"
+                  onClick={showSavedRecoveryPhrase}
+                >
+                  👁️ Ver recovery phrase deste dispositivo
+                </button>
+              </>
             )}
             
             {isRestore && (
