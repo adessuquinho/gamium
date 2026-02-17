@@ -10,8 +10,14 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "patch": "npm version patch",
+    "minor": "npm version minor",
+    "major": "npm version major",
     "package": "vite build && electron-builder --config electron-builder.json --publish never",
     "publish": "dotenv -e .env vite build && dotenv -e .env electron-builder --config electron-builder.json --publish always",
+    "release:patch": "npm run patch && npm run publish",
+    "release:minor": "npm run minor && npm run publish",
+    "release:major": "npm run major && npm run publish",
     "start": "electron ."
   },
   "author": "adessuquinho",
