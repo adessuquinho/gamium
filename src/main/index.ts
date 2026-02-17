@@ -230,6 +230,8 @@ function setupAutoUpdater() {
 
     if (lower.includes('latest.yml') || (lower.includes('404') && lower.includes('release'))) {
       friendlyMessage = 'Atualização indisponível: a release no GitHub está sem o arquivo obrigatório latest.yml (e/ou .blockmap).'
+    } else if (lower.includes('checksum mismatch') || lower.includes('sha512')) {
+      friendlyMessage = 'Integridade da atualização inválida (checksum). Isso ocorre quando uma mesma versão é republicada com arquivo diferente. Publique uma nova versão patch e tente novamente.'
     }
 
     mainWindow?.webContents.send('update:error', {
