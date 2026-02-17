@@ -10,7 +10,7 @@
 
 import Gun from 'gun'
 import 'gun/sea'
-import { generateMnemonic, mnemonicToSeed, validateMnemonic } from 'bip39'
+import { generateMnemonic, validateMnemonic } from 'bip39'
 import type { Message, Server, Channel, Group, FriendRequest } from '../shared/types'
 import { useAppStore } from './store'
 
@@ -80,35 +80,62 @@ function withAuthTimeout<T>(promise: Promise<T>, timeoutMs = 15000): Promise<T> 
 
 // ─── Autenticação ───────────────────────────────────────────────────────────────
 
-export async function register(alias: string, password: string): Promise<{ ok: boolean; error?: string; pub?: string; recoveryPhrase?: string }> {
+export async function register(
+  alias: string,
+  password: string
+): Promise<{
+  ok: boolean
+  error?: string
+  pub?: string
+  recoveryPhrase?: string
+  created?: boolean
+}> {
   ensureGunReady()
+  const recoveryPhrase = generateRecoveryPhrase()
+  saveRecoveryPhrase(recoveryPhrase)
+
   try {
     return await withAuthTimeout(
       new Promise((resolve) => {
         user.create(alias, password, (ack: any) => {
           if (ack.err) {
             resolve({ ok: false, error: ack.err })
-          } else {
+            return
+          }
+
+          ;(async () => {
+            await writeUnverifiedRecoveryBundle(alias, password, recoveryPhrase)
             user.auth(alias, password, (authAck: any) => {
               if (authAck.err) {
-                resolve({ ok: false, error: authAck.err })
-              } else {
-                setupUserProfile(alias)
-                const recoveryPhrase = generateRecoveryPhrase()
-                saveRecoveryPhrase(recoveryPhrase)
+                resolve({ ok: false, error: authAck.err, recoveryPhrase, created: true })
+                return
+              }
+
+              ;(async () => {
+                try {
+                  setupUserProfile(alias)
+                  await writeVerifiedRecoveryBundle(alias, password, recoveryPhrase)
+                } catch {
+                  // Keep registration successful even if recovery bundle update fails.
+                }
                 resolve({
                   ok: true,
                   pub: user.is?.pub,
                   recoveryPhrase,
                 })
-              }
+              })()
             })
-          }
+          })()
         })
       })
     )
   } catch (error: any) {
-    return { ok: false, error: error?.message || 'Falha ao criar conta.' }
+    return {
+      ok: false,
+      error: error?.message || 'Falha ao criar conta.',
+      recoveryPhrase,
+      created: true,
+    }
   }
 }
 
@@ -136,7 +163,7 @@ export async function login(alias: string, password: string): Promise<{ ok: bool
  * Valida o mnemonic e cria uma senha derivada
  */
 export async function restoreWithRecoveryPhrase(
-  alias: string, 
+  alias: string,
   mnemonic: string
 ): Promise<{ ok: boolean; error?: string; pub?: string }> {
   ensureGunReady()
@@ -145,10 +172,22 @@ export async function restoreWithRecoveryPhrase(
     return { ok: false, error: 'Frase de recuperação inválida. Verifique as 12 palavras.' }
   }
 
-  // Gera seed do mnemonic
-  const seed = await mnemonicToSeed(mnemonic)
-  // Converte seed (Buffer) em string hexadecimal e usa como senha
-  const derivedPassword = seed.toString('hex').substring(0, 64)
+  const recoveryBundle = await fetchRecoveryBundle(alias)
+  if (!recoveryBundle?.encPassword) {
+    return { ok: false, error: 'Nenhuma frase de recuperação encontrada para este usuário.' }
+  }
+
+  if (recoveryBundle.sig && recoveryBundle.pub) {
+    const verified = await SEA.verify(recoveryBundle.sig, recoveryBundle.pub)
+    if (!verified || verified !== recoveryBundle.encPassword) {
+      return { ok: false, error: 'Dados de recuperação inválidos ou corrompidos.' }
+    }
+  }
+
+  const derivedPassword = await SEA.decrypt(recoveryBundle.encPassword, mnemonic)
+  if (!derivedPassword || typeof derivedPassword !== 'string') {
+    return { ok: false, error: 'Frase de recuperação inválida. Não foi possível descriptografar a senha.' }
+  }
 
   try {
     return await withAuthTimeout(
@@ -232,6 +271,64 @@ export function clearRecoveryPhrase(): void {
   } catch (err) {
     console.error('Erro ao deletar recovery phrase:', err)
   }
+}
+
+type RecoveryBundle = {
+  encPassword: string
+  pub?: string
+  sig?: string
+  updatedAt?: number
+  verified?: boolean
+}
+
+async function writeUnverifiedRecoveryBundle(alias: string, password: string, phrase: string): Promise<void> {
+  try {
+    const encPassword = await SEA.encrypt(password, phrase)
+    gun.get('recovery').get(alias).put({
+      encPassword,
+      updatedAt: Date.now(),
+      verified: false,
+    })
+  } catch (err) {
+    console.error('Erro ao salvar recovery bundle (unverified):', err)
+  }
+}
+
+async function writeVerifiedRecoveryBundle(alias: string, password: string, phrase: string): Promise<void> {
+  try {
+    const encPassword = await SEA.encrypt(password, phrase)
+    const sig = await SEA.sign(encPassword, user._.sea)
+    gun.get('recovery').get(alias).put({
+      encPassword,
+      pub: user.is?.pub,
+      sig,
+      updatedAt: Date.now(),
+      verified: true,
+    })
+  } catch (err) {
+    console.error('Erro ao salvar recovery bundle (verified):', err)
+  }
+}
+
+async function fetchRecoveryBundle(alias: string): Promise<RecoveryBundle | null> {
+  return await withAuthTimeout(
+    new Promise((resolve) => {
+      gun.get('recovery').get(alias).once((data: any) => {
+        if (!data?.encPassword) {
+          resolve(null)
+          return
+        }
+        resolve({
+          encPassword: data.encPassword,
+          pub: data.pub,
+          sig: data.sig,
+          updatedAt: data.updatedAt,
+          verified: data.verified,
+        })
+      })
+    }),
+    10000
+  ).catch(() => null)
 }
 
 // ─── Sistema de Amigos ──────────────────────────────────────────────────────────

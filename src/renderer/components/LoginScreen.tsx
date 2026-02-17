@@ -13,6 +13,7 @@ export default function LoginScreen() {
   const [recoveryPhrase, setRecoveryPhrase] = useState<string | null>(null)
   const [copiedRecovery, setCopiedRecovery] = useState(false)
   const [recoveryInput, setRecoveryInput] = useState('')
+  const [pendingLoginAfterRecovery, setPendingLoginAfterRecovery] = useState(false)
 
   const passwordValid = password.length >= 16
 
@@ -83,7 +84,13 @@ export default function LoginScreen() {
             }
           }
         } else {
-          setError(result.error || 'Erro desconhecido.')
+          if (isRegister && result.created && result.recoveryPhrase) {
+            setPendingLoginAfterRecovery(true)
+            setRecoveryPhrase(result.recoveryPhrase)
+            setError('Conta criada, mas houve falha ao entrar. Guarde a frase e faça login em seguida.')
+          } else {
+            setError(result.error || 'Erro desconhecido.')
+          }
         }
       } catch (err: any) {
         setError(err?.message || 'Erro de conexão.')
@@ -102,6 +109,14 @@ export default function LoginScreen() {
   }
 
   function handleRecoveryPhraseDone() {
+    if (pendingLoginAfterRecovery) {
+      setPendingLoginAfterRecovery(false)
+      setRecoveryPhrase(null)
+      setIsRegister(false)
+      setError('Conta criada. Agora faça login para continuar.')
+      return
+    }
+
     const currentUser = getCurrentUser()
     if (currentUser) {
       setUser({
@@ -181,7 +196,7 @@ export default function LoginScreen() {
                 onClick={handleRecoveryPhraseDone}
                 disabled
               >
-                Continuar para Gamium
+                {pendingLoginAfterRecovery ? 'Continuar para Login' : 'Continuar para Gamium'}
               </button>
             </div>
           </div>

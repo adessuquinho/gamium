@@ -122,6 +122,33 @@ input, button, textarea {
   -webkit-app-region: no-drag;
 }
 
+.titlebar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 6px;
+  -webkit-app-region: no-drag;
+}
+
+.titlebar-update-btn {
+  height: 22px;
+  padding: 0 12px;
+  border-radius: 9999px;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  background: rgba(16, 185, 129, 0.2);
+  color: #eafff7;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.titlebar-update-btn:hover {
+  background: rgba(16, 185, 129, 0.35);
+  border-color: rgba(16, 185, 129, 0.7);
+}
+
 .titlebar-btn {
   width: 46px;
   height: 36px;
@@ -141,6 +168,98 @@ input, button, textarea {
 .titlebar-close:hover {
   background: var(--red);
   color: white;
+}
+
+/* ─── Update Modal ─────────────────────────────────────────────────────────── */
+
+.update-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(7, 7, 12, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.update-modal-card {
+  width: 360px;
+  background: var(--bg-elevated);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  padding: 16px;
+}
+
+.update-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.update-modal-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.update-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.update-modal-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.update-modal-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--bg-dark);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.update-modal-fill {
+  height: 100%;
+  background: var(--green);
+  transition: width 200ms ease;
+}
+
+.update-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.update-modal-download {
+  padding: 8px 14px;
+  background: var(--green);
+  color: white;
+  border: none;
+  border-radius: var(--radius);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.update-modal-download:hover {
+  filter: brightness(1.05);
+}
+
+.update-modal-error {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: var(--red);
+  padding: 8px 10px;
+  border-radius: var(--radius);
 }
 
 /* ─── Login Screen ───────────────────────────────────────────────────────────── */

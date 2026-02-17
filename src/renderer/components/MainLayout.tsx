@@ -30,12 +30,6 @@ export default function MainLayout() {
   const [serverAvatars, setServerAvatars] = useState<Record<string, string>>({})
   const avatarInputRef = useRef<HTMLInputElement>(null)
   
-  // Auto-update states
-  const [updateAvailable, setUpdateAvailable] = useState(false)
-  const [updateVersion, setUpdateVersion] = useState('')
-  const [downloadProgress, setDownloadProgress] = useState(0)
-  const [updateDownloaded, setUpdateDownloaded] = useState(false)
-  const [updateError, setUpdateError] = useState('')
 
   // Listeners P2P
   useEffect(() => {
@@ -53,27 +47,6 @@ export default function MainLayout() {
     })
   }, [])
 
-  // Auto-update listeners
-  useEffect(() => {
-    window.gamiumAPI.updates.onUpdateAvailable((info) => {
-      setUpdateAvailable(true)
-      setUpdateVersion(info.version)
-    })
-
-    window.gamiumAPI.updates.onDownloadProgress((progress) => {
-      setDownloadProgress(Math.floor(progress.percent))
-    })
-
-    window.gamiumAPI.updates.onUpdateDownloaded(() => {
-      setUpdateDownloaded(true)
-      setDownloadProgress(100)
-    })
-
-    window.gamiumAPI.updates.onUpdateError((error) => {
-      setUpdateError(error.message)
-      setTimeout(() => setUpdateError(''), 5000)
-    })
-  }, [])
 
   // Carregar avatares dos servidores
   useEffect(() => {
@@ -123,18 +96,6 @@ export default function MainLayout() {
     e.target.value = ''
   }
 
-  async function downloadUpdate() {
-    await window.gamiumAPI.updates.downloadUpdate()
-  }
-
-  async function installUpdate() {
-    await window.gamiumAPI.updates.installUpdate()
-  }
-
-  function dismissUpdate() {
-    setUpdateAvailable(false)
-    setUpdateDownloaded(false)
-  }
 
   return (
     <div className="main-layout">
@@ -248,52 +209,6 @@ export default function MainLayout() {
         )}
       </div>
 
-      {/* ─── Notificação de atualização ───────────────────────────────── */}
-      {updateAvailable && !updateDownloaded && (
-        <div className="update-notification">
-          <div className="update-content">
-            <strong>🎉 Nova versão disponível: v{updateVersion}</strong>
-            {downloadProgress > 0 && (
-              <div className="update-progress">
-                <div className="progress-bar">
-                  <div className="progress-fill" style={{ width: `${downloadProgress}%` }}></div>
-                </div>
-                <span>{downloadProgress}%</span>
-              </div>
-            )}
-            <div className="update-actions">
-              {downloadProgress === 0 && (
-                <>
-                  <button onClick={downloadUpdate} className="btn-primary">Baixar</button>
-                  <button onClick={dismissUpdate} className="btn-secondary">Depois</button>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {updateDownloaded && (
-        <div className="update-notification update-ready">
-          <div className="update-content">
-            <strong>✅ Atualização baixada!</strong>
-            <p>Reinicie o Gamium para instalar a versão {updateVersion}</p>
-            <div className="update-actions">
-              <button onClick={installUpdate} className="btn-primary">Reiniciar Agora</button>
-              <button onClick={dismissUpdate} className="btn-secondary">Depois</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {updateError && (
-        <div className="update-notification update-error">
-          <div className="update-content">
-            <strong>⚠️ Erro ao atualizar</strong>
-            <p>{updateError}</p>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
