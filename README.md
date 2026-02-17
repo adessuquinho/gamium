@@ -33,7 +33,13 @@ Gamium é uma aplicação de chat, mas completamente descentralizada usando Gun.
 - **Minimize para Bandeja**: Fica em segundo plano sem fechar
 - **Janela Frameless**: UI customizada e moderna
 
-### 🔄 Auto-Update
+### � Recovery Phrase (Recuperação de Conta)
+- **Frase de 12 palavras**: Gerada na criação de conta
+- **Recuperar em outro dispositivo**: Use a frase para restaurar conta
+- **Backup universal**: Acesso à sua conta de qualquer computador
+- **BIP39 standard**: Padrão criptográfico seguro
+
+### �🔄 Auto-Update
 - **Atualizações Automáticas**: Notificações de novas versões
 - **Download em Background**: Baixe updates enquanto usa o app
 - **Instalação Fácil**: Um clique para atualizar
@@ -63,6 +69,41 @@ sudo dpkg -i gamium_x.x.x_amd64.deb
 open Gamium-x.x.x.dmg
 ```
 
+## 🔑 Recovery Phrase (Recuperação de Conta)
+
+### O que é?
+Uma **Recovery Phrase** é uma sequência de 12 palavras geradas na criação da conta que permite restaurar seu acesso em outro dispositivo.
+
+### Como Funciona
+
+**Na Criação de Conta:**
+1. Registre uma nova conta
+2. Uma tela especial exibe suas 12 palavras únicas
+3. Copie ou anote em um lugar seguro
+4. Confirme que guardou
+5. Pronto! Sua conta está criada
+
+**Para Restaurar em Outro Dispositivo:**
+1. Abra Gamium em novo computador
+2. Na tela de login, clique em "🔑 Restaurar com Recovery Phrase"
+3. Digite seu nome de usuário
+4. Cole suas 12 palavras
+5. Sua conta será completamente restaurada!
+
+### ⚠️ Segurança
+
+**FAÇA:**
+- ✅ Guarde em lugar seguro (cofre, gestor de senhas, papel)
+- ✅ Nunca compartilhe com ninguém
+- ✅ Faça múltiplas cópias em locais diferentes
+- ✅ Guarde offline
+
+**NÃO FAÇA:**
+- ❌ Screenshot no computador
+- ❌ Enviar por email ou mensagem
+- ❌ Compartilhar em redes sociais
+- ❌ Ignorar (você pode precisar!)
+
 ## 🌐 Tecnologias
 
 - **Electron** - Framework desktop multiplataforma
@@ -73,6 +114,7 @@ open Gamium-x.x.x.dmg
 - **WebRTC** - Comunicação de voz/vídeo em tempo real
 - **Zustand** - State management minimalista
 - **electron-updater** - Sistema de auto-update
+- **BIP39** - Padrão de recovery phrases
 
 ## 📝 Licença
 
