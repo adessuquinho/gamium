@@ -215,9 +215,19 @@ function setupAutoUpdater() {
   })
 
   // Evento: erro
-  autoUpdater.on('error', (error) => {
+  autoUpdater.on('error', (error: any) => {
+    const rawMessage = String(error?.message || error || '')
+    const lower = rawMessage.toLowerCase()
+
+    let friendlyMessage = 'Falha ao verificar atualização. Tente novamente em alguns minutos.'
+
+    if (lower.includes('latest.yml') || (lower.includes('404') && lower.includes('release'))) {
+      friendlyMessage = 'Atualização indisponível: a release no GitHub está sem o arquivo obrigatório latest.yml (e/ou .blockmap).'
+    }
+
     mainWindow?.webContents.send('update:error', {
-      message: error.message,
+      message: friendlyMessage,
+      details: rawMessage,
     })
   })
 
