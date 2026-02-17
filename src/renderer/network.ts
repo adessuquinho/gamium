@@ -54,45 +54,81 @@ export function getUser() {
   return user
 }
 
-// ─── Autenticação ───────────────────────────────────────────────────────────────
+function ensureGunReady() {
+  if (!gun || !user) {
+    initGun()
+  }
+}
 
-export async function register(alias: string, password: string): Promise<{ ok: boolean; error?: string; pub?: string; recoveryPhrase?: string }> {
-  return new Promise(async (resolve) => {
-    user.create(alias, password, (ack: any) => {
-      if (ack.err) {
-        resolve({ ok: false, error: ack.err })
-      } else {
-        // login automático após registro
-        user.auth(alias, password, (authAck: any) => {
-          if (authAck.err) {
-            resolve({ ok: false, error: authAck.err })
-          } else {
-            setupUserProfile(alias)
-            // Gera recovery phrase
-            const recoveryPhrase = generateRecoveryPhrase()
-            saveRecoveryPhrase(recoveryPhrase)
-            resolve({ 
-              ok: true, 
-              pub: user.is?.pub,
-              recoveryPhrase 
-            })
-          }
-        })
-      }
-    })
+function withAuthTimeout<T>(promise: Promise<T>, timeoutMs = 15000): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error('Tempo de conexão esgotado. Verifique sua internet e tente novamente.'))
+    }, timeoutMs)
+
+    promise
+      .then((value) => {
+        clearTimeout(timer)
+        resolve(value)
+      })
+      .catch((error) => {
+        clearTimeout(timer)
+        reject(error)
+      })
   })
 }
 
+// ─── Autenticação ───────────────────────────────────────────────────────────────
+
+export async function register(alias: string, password: string): Promise<{ ok: boolean; error?: string; pub?: string; recoveryPhrase?: string }> {
+  ensureGunReady()
+  try {
+    return await withAuthTimeout(
+      new Promise((resolve) => {
+        user.create(alias, password, (ack: any) => {
+          if (ack.err) {
+            resolve({ ok: false, error: ack.err })
+          } else {
+            user.auth(alias, password, (authAck: any) => {
+              if (authAck.err) {
+                resolve({ ok: false, error: authAck.err })
+              } else {
+                setupUserProfile(alias)
+                const recoveryPhrase = generateRecoveryPhrase()
+                saveRecoveryPhrase(recoveryPhrase)
+                resolve({
+                  ok: true,
+                  pub: user.is?.pub,
+                  recoveryPhrase,
+                })
+              }
+            })
+          }
+        })
+      })
+    )
+  } catch (error: any) {
+    return { ok: false, error: error?.message || 'Falha ao criar conta.' }
+  }
+}
+
 export async function login(alias: string, password: string): Promise<{ ok: boolean; error?: string; pub?: string }> {
-  return new Promise((resolve) => {
-    user.auth(alias, password, (ack: any) => {
-      if (ack.err) {
-        resolve({ ok: false, error: ack.err })
-      } else {
-        resolve({ ok: true, pub: user.is?.pub })
-      }
-    })
-  })
+  ensureGunReady()
+  try {
+    return await withAuthTimeout(
+      new Promise((resolve) => {
+        user.auth(alias, password, (ack: any) => {
+          if (ack.err) {
+            resolve({ ok: false, error: ack.err })
+          } else {
+            resolve({ ok: true, pub: user.is?.pub })
+          }
+        })
+      })
+    )
+  } catch (error: any) {
+    return { ok: false, error: error?.message || 'Falha ao entrar.' }
+  }
 }
 
 /**
@@ -103,6 +139,7 @@ export async function restoreWithRecoveryPhrase(
   alias: string, 
   mnemonic: string
 ): Promise<{ ok: boolean; error?: string; pub?: string }> {
+  ensureGunReady()
   // Valida se o mnemonic é válido
   if (!validateMnemonic(mnemonic)) {
     return { ok: false, error: 'Frase de recuperação inválida. Verifique as 12 palavras.' }
@@ -113,15 +150,21 @@ export async function restoreWithRecoveryPhrase(
   // Converte seed (Buffer) em string hexadecimal e usa como senha
   const derivedPassword = seed.toString('hex').substring(0, 64)
 
-  return new Promise((resolve) => {
-    user.auth(alias, derivedPassword, (ack: any) => {
-      if (ack.err) {
-        resolve({ ok: false, error: 'Conta não encontrada ou dados incorretos.' })
-      } else {
-        resolve({ ok: true, pub: user.is?.pub })
-      }
-    })
-  })
+  try {
+    return await withAuthTimeout(
+      new Promise((resolve) => {
+        user.auth(alias, derivedPassword, (ack: any) => {
+          if (ack.err) {
+            resolve({ ok: false, error: 'Conta não encontrada ou dados incorretos.' })
+          } else {
+            resolve({ ok: true, pub: user.is?.pub })
+          }
+        })
+      })
+    )
+  } catch (error: any) {
+    return { ok: false, error: error?.message || 'Falha ao restaurar conta.' }
+  }
 }
 
 
