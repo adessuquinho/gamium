@@ -198,7 +198,7 @@ export default function MainLayout() {
       {/* ─── Barra inferior: perfil do usuário ────────────────────────── */}
       <div className="user-bar">
         <div className="user-info" onClick={() => setShowUserMenu(!showUserMenu)}>
-          <div className="user-avatar clickable" onClick={(e) => { e.stopPropagation(); avatarInputRef.current?.click() }}>
+          <div className="user-avatar">
             {myAvatar ? (
               <img src={myAvatar} alt="avatar" className="avatar-img" />
             ) : (
