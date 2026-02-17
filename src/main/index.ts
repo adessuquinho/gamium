@@ -176,7 +176,15 @@ ipcMain.handle('app:getIconDataUrl', () => {
 ipcMain.handle('app:checkForUpdates', async () => {
   try {
     const result = await autoUpdater.checkForUpdates()
-    return { available: result !== null, version: result?.updateInfo?.version }
+    const nextVersion = result?.updateInfo?.version
+    const currentVersion = app.getVersion()
+    const isNewVersion = Boolean(nextVersion && nextVersion !== currentVersion)
+
+    return {
+      available: isNewVersion,
+      version: nextVersion,
+      currentVersion,
+    }
   } catch (error) {
     return { available: false, error: String(error) }
   }

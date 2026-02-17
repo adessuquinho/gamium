@@ -82,6 +82,14 @@ export default function App() {
   }, [updateDownloaded, installPending])
 
   async function startUpdateDownload() {
+    const check = await window.gamiumAPI.updates.checkForUpdates()
+    if (!check?.available) {
+      setUpdateAvailable(false)
+      setUpdateError('Você já está na versão mais recente.')
+      setTimeout(() => setUpdateError(''), 5000)
+      return
+    }
+
     setShowUpdateModal(true)
     setInstallPending(true)
     setIsDownloading(true)
