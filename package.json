@@ -1,0 +1,33 @@
+{
+  "name": "gamium",
+  "version": "1.0.0",
+  "description": "Gamium — Plataforma de comunicação descentralizada, criptografada e P2P",
+  "main": "dist-electron/index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "package": "vite build && electron-builder --config electron-builder.json --publish never",
+    "start": "electron ."
+  },
+  "author": "Gamium",
+  "license": "MIT",
+  "dependencies": {
+    "gun": "^0.2020.1240",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "tweetnacl": "^1.0.3",
+    "tweetnacl-util": "^0.15.1",
+    "zustand": "^4.5.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.48",
+    "@types/react-dom": "^18.2.18",
+    "@vitejs/plugin-react": "^4.2.1",
+    "electron": "^28.1.4",
+    "electron-builder": "^24.13.3",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.12",
+    "vite-plugin-electron": "^0.28.7",
+    "vite-plugin-electron-renderer": "^0.14.5"
+  }
+}
