@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { register, login, getCurrentUser, restoreWithRecoveryPhrase, getRecoveryPhrase } from '../network'
 import { useAppStore } from '../store'
 
@@ -14,8 +14,29 @@ export default function LoginScreen() {
   const [copiedRecovery, setCopiedRecovery] = useState(false)
   const [recoveryInput, setRecoveryInput] = useState('')
   const [pendingLoginAfterRecovery, setPendingLoginAfterRecovery] = useState(false)
+  const [appIcon, setAppIcon] = useState<string | null>(null)
 
   const passwordValid = password.length >= 16
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadAppIcon() {
+      try {
+        const icon = await window.gamiumAPI.getAppIcon()
+        if (!cancelled && icon) {
+          setAppIcon(icon)
+        }
+      } catch {
+        // Keep fallback logo if icon fails.
+      }
+    }
+
+    loadAppIcon()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -207,10 +228,14 @@ export default function LoginScreen() {
       {!recoveryPhrase && (
       <div className="login-card">
         <div className="login-logo">
-          <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-            <rect width="64" height="64" rx="16" fill="#7c3aed" />
-            <text x="32" y="42" textAnchor="middle" fill="white" fontSize="28" fontWeight="bold" fontFamily="sans-serif">G</text>
-          </svg>
+          {appIcon ? (
+            <img src={appIcon} alt="Gamium" className="login-app-icon" />
+          ) : (
+            <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+              <rect width="64" height="64" rx="16" fill="#7c3aed" />
+              <text x="32" y="42" textAnchor="middle" fill="white" fontSize="28" fontWeight="bold" fontFamily="sans-serif">G</text>
+            </svg>
+          )}
           <h1 className="login-title">Gamium</h1>
           <p className="login-subtitle">Comunicação descentralizada e criptografada</p>
         </div>

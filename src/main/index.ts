@@ -166,6 +166,13 @@ ipcMain.handle('clipboard:write', (_event, text: string) => {
   return true
 })
 
+ipcMain.handle('app:getIconDataUrl', () => {
+  const iconPath = getIconPath()
+  const icon = nativeImage.createFromPath(iconPath)
+  if (icon.isEmpty()) return null
+  return icon.toDataURL()
+})
+
 ipcMain.handle('app:checkForUpdates', async () => {
   try {
     const result = await autoUpdater.checkForUpdates()

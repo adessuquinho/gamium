@@ -25,6 +25,9 @@ contextBridge.exposeInMainWorld('gamiumAPI', {
   // ─── Clipboard ────────────────────────────────────────────────────────────
   copyToClipboard: (text: string) => ipcRenderer.invoke('clipboard:write', text),
 
+  // ─── App ──────────────────────────────────────────────────────────────────
+  getAppIcon: () => ipcRenderer.invoke('app:getIconDataUrl'),
+
   // ─── Auto-Update ─────────────────────────────────────────────────────────────
   updates: {
     checkForUpdates: () => ipcRenderer.invoke('app:checkForUpdates'),

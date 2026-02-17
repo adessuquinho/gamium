@@ -290,6 +290,14 @@ input, button, textarea {
 .login-logo svg {
   margin-bottom: 16px;
 }
+
+.login-app-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+}
 .login-title {
   font-size: 28px;
   font-weight: 800;
