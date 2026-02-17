@@ -1,6 +1,6 @@
 {
   "name": "gamium",
-  "version": "2.0.0",
+  "version": "1.0.1",
   "description": "Gamium — Plataforma de comunicação descentralizada, criptografada e P2P",
   "main": "dist-electron/index.js",
   "repository": {
