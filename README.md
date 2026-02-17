@@ -44,6 +44,26 @@ Gamium é uma aplicação de chat, mas completamente descentralizada usando Gun.
 - **Download em Background**: Baixe updates enquanto usa o app
 - **Instalação Fácil**: Um clique para atualizar
 
+## 🔏 Atualizações via GitHub Oficial
+
+O auto-update usa exclusivamente o repositório oficial configurado no `electron-builder.json`:
+
+- provider: `github`
+- owner: `adessuquinho`
+- repo: `gamium`
+
+Defina no `.env`:
+
+```env
+GH_TOKEN=seu_token_github
+```
+
+Publicação:
+
+```bash
+npm run release:patch
+```
+
 ## 🚀 Instalação
 
 ### Usuários
