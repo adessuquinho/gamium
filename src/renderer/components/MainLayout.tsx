@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useAppStore } from '../store'
-import { listenFriends, listenFriendRequests, listenUserServers, listenUserGroups, listenGroupInvites, acceptGroupInvite, logout, setProfileAvatar, getMyAvatar, getServerAvatar } from '../network'
+import { listenFriends, listenFriendRequests, listenUserServers, listenUserGroups, listenGroupInvites, acceptGroupInvite, logout, setProfileAvatar, getMyAvatar, getServerAvatar, getRecoveryPhrase } from '../network'
 import ChatView from './ChatView'
 import FriendsPanel from './FriendsPanel'
 import ServersPanel from './ServersPanel'
@@ -92,6 +92,18 @@ export default function MainLayout() {
       setCopiedId(true)
       setTimeout(() => setCopiedId(false), 2000)
     }
+  }
+
+  async function showRecoveryPhraseFromMenu() {
+    const phrase = getRecoveryPhrase()
+    if (!phrase) {
+      alert('Nenhuma recovery phrase foi encontrada neste dispositivo.')
+      return
+    }
+
+    await window.gamiumAPI.copyToClipboard(phrase)
+    alert('Recovery phrase copiada para a área de transferência. Guarde em local seguro.')
+    setShowUserMenu(false)
   }
 
   function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -225,6 +237,9 @@ export default function MainLayout() {
             </button>
             <button onClick={copyUserId} className="menu-item">
               {copiedId ? '✓ Copiado!' : '📋 Copiar Gamium ID'}
+            </button>
+            <button onClick={showRecoveryPhraseFromMenu} className="menu-item">
+              🔑 Recuperar Chaves
             </button>
             <button onClick={() => { logout(); setShowUserMenu(false) }} className="menu-item danger">
               🚪 Sair
