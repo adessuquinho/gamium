@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAppStore } from '../store'
 import { leaveVoiceChannel, toggleMute, stopScreenShare } from '../network'
+import { useI18n } from '../i18n'
 
 export default function VoicePanel() {
+  const { t } = useI18n()
   const inVoice = useAppStore((s) => s.inVoice)
   const voiceChannelPath = useAppStore((s) => s.voiceChannelPath)
   const voiceMuted = useAppStore((s) => s.voiceMuted)
@@ -99,7 +101,7 @@ export default function VoicePanel() {
         <div className="voice-status">
           <span className="voice-indicator" />
           <span className="voice-label">
-            {voiceMuted ? '🔇 Mudo' : '🔊 Conectado à voz'}
+            {voiceMuted ? `🔇 ${t('voice.muted')}` : `🔊 ${t('voice.connected')}`}
           </span>
           <span className="voice-channel">{voiceChannelPath?.split('/').pop()}</span>
         </div>
@@ -113,7 +115,7 @@ export default function VoicePanel() {
             {/* EU */}
             <div className="voice-participant self">
               <div className="participant-avatar">{user?.alias?.charAt(0).toUpperCase()}</div>
-              <span className="participant-name">{user?.alias} (você)</span>
+              <span className="participant-name">{user?.alias} {t('voice.me')}</span>
               <span className={`participant-mic ${voiceMuted ? 'muted' : ''}`}>
                 {voiceMuted ? '🔇' : '🎤'}
               </span>
@@ -132,7 +134,7 @@ export default function VoicePanel() {
             ))}
 
             {voicePeers.length === 0 && (
-              <p className="voice-hint">Aguardando outros participantes...</p>
+              <p className="voice-hint">{t('voice.waiting')}</p>
             )}
           </div>
 
@@ -146,7 +148,7 @@ export default function VoicePanel() {
                 playsInline
                 className="screen-video"
               />
-              <span className="screen-label">Compartilhando sua tela</span>
+              <span className="screen-label">{t('voice.sharingYourScreen')}</span>
             </div>
           )}
 
@@ -164,7 +166,7 @@ export default function VoicePanel() {
         <button
           className={`voice-btn ${voiceMuted ? 'active' : ''}`}
           onClick={handleToggleMute}
-          title={voiceMuted ? 'Ativar microfone' : 'Silenciar'}
+          title={voiceMuted ? t('voice.unmute') : t('voice.mute')}
         >
           {voiceMuted ? '🔇' : '🎤'}
         </button>
@@ -172,12 +174,12 @@ export default function VoicePanel() {
         <button
           className={`voice-btn ${isSharing ? 'active sharing' : ''}`}
           onClick={handleScreenShare}
-          title={isSharing ? 'Parar compartilhamento' : 'Compartilhar tela'}
+          title={isSharing ? t('voice.stopShare') : t('voice.share')}
         >
           🖥️
         </button>
 
-        <button className="voice-btn leave" onClick={handleLeave} title="Sair do canal de voz">
+        <button className="voice-btn leave" onClick={handleLeave} title={t('voice.leave')}>
           📞
         </button>
       </div>
@@ -187,6 +189,7 @@ export default function VoicePanel() {
 
 // Componente auxiliar para stream remota
 function RemoteScreen({ peer }: { peer: { pub: string; alias: string; stream?: MediaStream } }) {
+  const { t } = useI18n()
   const videoRef = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
@@ -198,7 +201,7 @@ function RemoteScreen({ peer }: { peer: { pub: string; alias: string; stream?: M
   return (
     <div className="screen-preview remote">
       <video ref={videoRef} autoPlay playsInline className="screen-video" />
-      <span className="screen-label">Tela de {peer.alias}</span>
+      <span className="screen-label">{t('voice.remoteScreen', { name: peer.alias })}</span>
     </div>
   )
 }

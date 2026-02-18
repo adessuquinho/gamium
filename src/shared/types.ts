@@ -13,8 +13,9 @@ export interface GamiumAPI {
     close: () => Promise<void>
   }
   copyToClipboard: (text: string) => Promise<boolean>
+  getAppIcon: () => Promise<string | null>
   updates: {
-    checkForUpdates: () => Promise<{ available: boolean; version?: string; error?: string }>
+    checkForUpdates: () => Promise<{ available: boolean; version?: string; currentVersion?: string; error?: string }>
     downloadUpdate: () => Promise<{ success: boolean; error?: string }>
     installUpdate: () => Promise<void>
     onUpdateAvailable: (callback: (info: UpdateInfo) => void) => void

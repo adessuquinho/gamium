@@ -2,8 +2,10 @@ import { useState, useEffect, useRef } from 'react'
 import { useAppStore } from '../store'
 import { createGroup, sendGroupMessage, listenGroupMessages } from '../network'
 import type { Message } from '../../shared/types'
+import { useI18n } from '../i18n'
 
 export default function GroupsPanel() {
+  const { t } = useI18n()
   const activeView = useAppStore((s) => s.activeView)
   const groups = useAppStore((s) => s.groups)
   const friends = useAppStore((s) => s.friends)
@@ -64,13 +66,13 @@ export default function GroupsPanel() {
       <div className="groups-panel">
         <div className="panel-sidebar">
           <div className="panel-sidebar-header">
-            <h2>Grupos</h2>
+            <h2>{t('groups.title')}</h2>
             <button className="icon-btn" onClick={() => setShowCreate(!showCreate)}>+</button>
           </div>
 
           {groups.length === 0 && !showCreate && (
             <div className="empty-state small">
-              <p>Nenhum grupo ainda.</p>
+              <p>{t('groups.none')}</p>
             </div>
           )}
 
@@ -90,23 +92,23 @@ export default function GroupsPanel() {
         <div className="panel-content centered">
           {showCreate ? (
             <div className="create-section">
-              <h3>Criar Novo Grupo</h3>
+              <h3>{t('groups.createTitle')}</h3>
               <form onSubmit={handleCreate}>
                 <div className="form-group">
-                  <label>Nome do Grupo</label>
+                  <label>{t('groups.groupName')}</label>
                   <input
                     type="text"
                     value={groupName}
                     onChange={(e) => setGroupName(e.target.value)}
-                    placeholder="Nome do grupo..."
+                    placeholder={t('groups.groupPlaceholder')}
                   />
                 </div>
 
                 <div className="form-group">
-                  <label>Selecione os Membros</label>
+                  <label>{t('groups.selectMembers')}</label>
                   <div className="member-select-list">
                     {friends.length === 0 && (
-                      <p className="hint">Adicione amigos primeiro para criar um grupo.</p>
+                      <p className="hint">{t('groups.addFriendsFirst')}</p>
                     )}
                     {friends.map((f) => (
                       <label key={f.pub} className="member-option">
@@ -124,10 +126,10 @@ export default function GroupsPanel() {
 
                 <div className="form-actions">
                   <button type="submit" className="btn-primary" disabled={!groupName.trim() || selectedMembers.length === 0}>
-                    Criar Grupo
+                    {t('groups.create')}
                   </button>
                   <button type="button" className="btn-secondary" onClick={() => setShowCreate(false)}>
-                    Cancelar
+                    {t('groups.cancel')}
                   </button>
                 </div>
               </form>
@@ -135,8 +137,8 @@ export default function GroupsPanel() {
           ) : (
             <div className="chat-empty">
               <div className="chat-empty-icon">👥</div>
-              <h3>Grupos</h3>
-              <p>Selecione um grupo na barra lateral ou crie um novo.</p>
+              <h3>{t('groups.title')}</h3>
+              <p>{t('groups.selectOrCreate')}</p>
             </div>
           )}
         </div>
@@ -149,7 +151,7 @@ export default function GroupsPanel() {
     <div className="groups-panel">
       <div className="panel-sidebar">
         <div className="panel-sidebar-header">
-          <h2>Grupos</h2>
+          <h2>{t('groups.title')}</h2>
           <button className="icon-btn" onClick={() => setShowCreate(!showCreate)}>+</button>
         </div>
 
@@ -170,15 +172,15 @@ export default function GroupsPanel() {
         <div className="chat-header">
           <span className="chat-header-icon">👥</span>
           <span className="chat-header-name">{currentGroup.name}</span>
-          <span className="chat-header-badge">Grupo E2E • {currentGroup.members.length} membros</span>
+          <span className="chat-header-badge">{t('groups.encrypted', { count: currentGroup.members.length })}</span>
         </div>
 
         <div className="chat-messages">
           {messages.length === 0 && (
             <div className="chat-empty">
               <div className="chat-empty-icon">💬</div>
-              <h3>Início do grupo {currentGroup.name}</h3>
-              <p>Todas as mensagens são criptografadas.</p>
+              <h3>{t('groups.start', { name: currentGroup.name })}</h3>
+              <p>{t('groups.encryptedMessages')}</p>
             </div>
           )}
 
@@ -202,7 +204,7 @@ export default function GroupsPanel() {
             className="chat-input"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={`Mensagem em ${currentGroup.name}...`}
+            placeholder={t('groups.messageIn', { name: currentGroup.name })}
           />
           <button type="submit" className="chat-send-btn" disabled={!input.trim()}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">

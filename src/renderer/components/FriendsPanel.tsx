@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useAppStore } from '../store'
 import { sendFriendRequest, acceptFriendRequest, removeFriend, lookupUser, getProfileAvatar } from '../network'
+import { useI18n } from '../i18n'
 
 export default function FriendsPanel() {
+  const { t } = useI18n()
   const friends = useAppStore((s) => s.friends)
   const friendRequests = useAppStore((s) => s.friendRequests)
   const removeFriendRequest = useAppStore((s) => s.removeFriendRequest)
@@ -34,12 +36,12 @@ export default function FriendsPanel() {
     setAddSuccess('')
 
     if (!friendId.trim()) {
-      setAddError('Cole o Gamium ID do amigo.')
+      setAddError(t('friends.errorPasteId'))
       return
     }
 
     if (friendId.trim() === user?.pub) {
-      setAddError('Você não pode adicionar a si mesmo.')
+      setAddError(t('friends.errorSelf'))
       return
     }
 
@@ -47,16 +49,16 @@ export default function FriendsPanel() {
     try {
       const found = await lookupUser(friendId.trim())
       if (!found) {
-        setAddError('Usuário não encontrado na rede.')
+        setAddError(t('friends.errorNotFound'))
         setLoading(false)
         return
       }
 
       await sendFriendRequest(friendId.trim())
-      setAddSuccess(`Solicitação enviada para ${found.alias}!`)
+      setAddSuccess(t('friends.requestSent', { alias: found.alias }))
       setFriendId('')
     } catch {
-      setAddError('Erro ao enviar solicitação.')
+      setAddError(t('friends.errorSend'))
     }
     setLoading(false)
   }
@@ -75,29 +77,29 @@ export default function FriendsPanel() {
       {/* Sidebar de navegação */}
       <div className="panel-sidebar">
         <div className="panel-sidebar-header">
-          <h2>Amigos</h2>
+          <h2>{t('friends.title')}</h2>
         </div>
 
         <div className="panel-tabs">
           <button className={`tab ${tab === 'all' ? 'active' : ''}`} onClick={() => setTab('all')}>
-            Todos
+            {t('friends.all')}
           </button>
           <button className={`tab ${tab === 'requests' ? 'active' : ''}`} onClick={() => setTab('requests')}>
-            Pendentes
+            {t('friends.pending')}
             {friendRequests.length > 0 && <span className="badge">{friendRequests.length}</span>}
           </button>
           <button className={`tab ${tab === 'add' ? 'active' : ''}`} onClick={() => setTab('add')}>
-            Adicionar
+            {t('friends.add')}
           </button>
         </div>
 
         {/* Seu ID */}
         <div className="my-id-section">
-          <span className="my-id-label">Seu Gamium ID:</span>
+          <span className="my-id-label">{t('friends.yourId')}</span>
           <code className="my-id-value" onClick={() => window.gamiumAPI.copyToClipboard(user?.pub || '')}>
             {user?.pub?.slice(0, 20)}...
           </code>
-          <span className="copy-hint">Clique para copiar</span>
+          <span className="copy-hint">{t('friends.clickCopy')}</span>
         </div>
       </div>
 
@@ -106,10 +108,10 @@ export default function FriendsPanel() {
         {/* Todos os amigos */}
         {tab === 'all' && (
           <div className="friends-list">
-            <h3 className="list-header">Todos os Amigos — {friends.length}</h3>
+            <h3 className="list-header">{t('friends.total', { count: friends.length })}</h3>
             {friends.length === 0 && (
               <div className="empty-state">
-                <p>Nenhum amigo ainda. Adicione alguém compartilhando seu Gamium ID!</p>
+                <p>{t('friends.empty')}</p>
               </div>
             )}
             {friends.map((f) => (
@@ -126,12 +128,12 @@ export default function FriendsPanel() {
                   <span className="friend-id">{f.pub.slice(0, 16)}...</span>
                 </div>
                 <div className="friend-actions">
-                  <button className="icon-btn" title="Mensagem" onClick={() => openDM(f.pub)}>
+                  <button className="icon-btn" title={t('friends.msg')} onClick={() => openDM(f.pub)}>
                     💬
                   </button>
                   <button
                     className="icon-btn danger"
-                    title="Remover"
+                    title={t('friends.remove')}
                     onClick={() => removeFriend(f.pub)}
                   >
                     ✕
@@ -145,10 +147,10 @@ export default function FriendsPanel() {
         {/* Solicitações pendentes */}
         {tab === 'requests' && (
           <div className="friends-list">
-            <h3 className="list-header">Solicitações Pendentes — {friendRequests.length}</h3>
+            <h3 className="list-header">{t('friends.pendingTitle', { count: friendRequests.length })}</h3>
             {friendRequests.length === 0 && (
               <div className="empty-state">
-                <p>Nenhuma solicitação pendente.</p>
+                <p>{t('friends.pendingEmpty')}</p>
               </div>
             )}
             {friendRequests.map((req) => (
@@ -160,7 +162,7 @@ export default function FriendsPanel() {
                 </div>
                 <div className="friend-actions">
                   <button className="btn-small accept" onClick={() => handleAccept(req.from)}>
-                    ✓ Aceitar
+                    ✓ {t('friends.accept')}
                   </button>
                   <button
                     className="btn-small reject"
@@ -177,10 +179,9 @@ export default function FriendsPanel() {
         {/* Adicionar amigo */}
         {tab === 'add' && (
           <div className="add-friend-section">
-            <h3 className="list-header">Adicionar Amigo</h3>
+            <h3 className="list-header">{t('friends.addTitle')}</h3>
             <p className="add-friend-desc">
-              Cole o Gamium ID do amigo abaixo. O ID é a chave pública do usuário na rede
-              descentralizada.
+              {t('friends.addDesc')}
             </p>
 
             <form onSubmit={handleAddFriend} className="add-friend-form">
@@ -188,11 +189,11 @@ export default function FriendsPanel() {
                 type="text"
                 value={friendId}
                 onChange={(e) => setFriendId(e.target.value)}
-                placeholder="Cole o Gamium ID aqui..."
+                placeholder={t('friends.addPlaceholder')}
                 disabled={loading}
               />
               <button type="submit" className="btn-primary" disabled={loading || !friendId.trim()}>
-                {loading ? 'Buscando...' : 'Enviar Solicitação'}
+                {loading ? t('friends.searching') : t('friends.sendRequest')}
               </button>
             </form>
 

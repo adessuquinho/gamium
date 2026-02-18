@@ -3,9 +3,12 @@ import { useAppStore } from './store'
 import { initGun } from './network'
 import LoginScreen from './components/LoginScreen'
 import MainLayout from './components/MainLayout'
+import LanguageSwitcher from './components/LanguageSwitcher'
+import { useI18n } from './i18n'
 
 export default function App() {
   const user = useAppStore((s) => s.user)
+  const { t, language, rtl } = useI18n()
   const [updateAvailable, setUpdateAvailable] = useState(false)
   const [updateVersion, setUpdateVersion] = useState('')
   const [downloadProgress, setDownloadProgress] = useState(0)
@@ -18,6 +21,11 @@ export default function App() {
   useEffect(() => {
     initGun()
   }, [])
+
+  useEffect(() => {
+    document.documentElement.lang = language
+    document.documentElement.dir = rtl ? 'rtl' : 'ltr'
+  }, [language, rtl])
 
   useEffect(() => {
     window.gamiumAPI.updates.onUpdateAvailable((info) => {
@@ -85,7 +93,7 @@ export default function App() {
     const check = await window.gamiumAPI.updates.checkForUpdates()
     if (!check?.available) {
       setUpdateAvailable(false)
-      setUpdateError('Você já está na versão mais recente.')
+      setUpdateError(t('title.latestVersion'))
       setTimeout(() => setUpdateError(''), 5000)
       return
     }
@@ -97,7 +105,7 @@ export default function App() {
     if (!result?.success) {
       setIsDownloading(false)
       setInstallPending(false)
-      setUpdateError(result?.error || 'Falha ao baixar atualização.')
+      setUpdateError(result?.error || t('title.downloadUpdate'))
     }
   }
 
@@ -109,13 +117,14 @@ export default function App() {
           <span className="titlebar-title">Gamium</span>
         </div>
         <div className="titlebar-actions">
+          <LanguageSwitcher />
           {(updateAvailable || updateDownloaded) && (
             <button
               className="titlebar-update-btn"
               onClick={() => setShowUpdateModal(true)}
-              title={updateDownloaded ? 'Atualização pronta para instalar' : 'Baixar atualização'}
+              title={updateDownloaded ? t('title.updateReady') : t('title.downloadUpdate')}
             >
-              {updateDownloaded ? 'Atualizar' : 'Baixar Update'}
+              {updateDownloaded ? t('title.updateReady') : t('title.downloadUpdate')}
             </button>
           )}
         </div>
@@ -141,14 +150,14 @@ export default function App() {
         <div className="update-modal">
           <div className="update-modal-card">
             <div className="update-modal-header">
-              <strong>Atualizacao {updateDownloaded ? 'pronta' : 'disponivel'}</strong>
+              <strong>{updateDownloaded ? t('title.updateReady') : t('title.updateAvailable')}</strong>
               {!isDownloading && !updateDownloaded && (
                 <button className="update-modal-close" onClick={() => setShowUpdateModal(false)}>✕</button>
               )}
             </div>
 
             <div className="update-modal-body">
-              <p>Versao: v{updateVersion}</p>
+              <p>{t('title.version', { version: updateVersion })}</p>
               {(isDownloading || updateDownloaded) && (
                 <div className="update-modal-progress">
                   <div className="update-modal-bar">
@@ -160,11 +169,11 @@ export default function App() {
               {updateError && <div className="update-modal-error">{updateError}</div>}
               {!isDownloading && !updateDownloaded && (
                 <div className="update-modal-actions">
-                  <button className="update-modal-download" onClick={startUpdateDownload}>Baixar agora</button>
+                  <button className="update-modal-download" onClick={startUpdateDownload}>{t('title.downloadNow')}</button>
                 </div>
               )}
-              {isDownloading && <p>Baixando atualizacao...</p>}
-              {updateDownloaded && <p>Atualizacao baixada. Reiniciando...</p>}
+              {isDownloading && <p>{t('title.downloading')}</p>}
+              {updateDownloaded && <p>{t('title.downloadedRestarting')}</p>}
             </div>
           </div>
         </div>

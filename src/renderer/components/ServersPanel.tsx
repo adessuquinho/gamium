@@ -17,8 +17,10 @@ import {
 } from '../network'
 import type { Message, Channel } from '../../shared/types'
 import type { ServerMember } from '../network'
+import { useI18n } from '../i18n'
 
 export default function ServersPanel() {
+  const { t, language } = useI18n()
   const activeView = useAppStore((s) => s.activeView)
   const setActiveView = useAppStore((s) => s.setActiveView)
   const servers = useAppStore((s) => s.servers)
@@ -169,7 +171,7 @@ export default function ServersPanel() {
     const file = e.target.files?.[0]
     if (!file || !currentServer) return
     if (file.size > 512 * 1024) {
-      alert('Imagem muito grande. Máximo 512KB.')
+      alert(t('user.imageTooLarge'))
       return
     }
     const reader = new FileReader()
@@ -184,7 +186,7 @@ export default function ServersPanel() {
 
   function handleBan(memberPub: string, memberAlias: string) {
     if (!currentServer) return
-    if (!confirm(`Tem certeza que deseja banir ${memberAlias} do servidor?`)) return
+    if (!confirm(t('servers.confirmBan', { alias: memberAlias }))) return
     banServerMember(currentServer.id, memberPub)
   }
 
@@ -196,7 +198,7 @@ export default function ServersPanel() {
   }
 
   function formatTime(ts: number) {
-    return new Date(ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    return new Date(ts).toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' })
   }
 
   function getAvatar(pub: string, alias: string) {
@@ -214,37 +216,37 @@ export default function ServersPanel() {
     return (
       <div className="server-create-panel">
         <div className="panel-content centered">
-          <h2>Servidores</h2>
+          <h2>{t('servers.title')}</h2>
 
           <div className="create-section">
-            <h3>Criar Novo Servidor</h3>
+            <h3>{t('servers.createNew')}</h3>
             <form onSubmit={handleCreateServer} className="inline-form">
               <input
                 type="text"
                 value={newServerName}
                 onChange={(e) => setNewServerName(e.target.value)}
-                placeholder="Nome do servidor..."
+                placeholder={t('servers.serverName')}
               />
               <button type="submit" className="btn-primary" disabled={!newServerName.trim()}>
-                Criar
+                {t('servers.create')}
               </button>
             </form>
           </div>
 
-          <div className="divider-text"><span>ou</span></div>
+          <div className="divider-text"><span>{t('servers.or')}</span></div>
 
           <div className="create-section">
-            <h3>Entrar em um Servidor</h3>
-            <p className="hint">Cole o ID do servidor abaixo.</p>
+            <h3>{t('servers.joinServer')}</h3>
+            <p className="hint">{t('servers.pasteServerId')}</p>
             <form onSubmit={handleJoinServer} className="inline-form">
               <input
                 type="text"
                 value={joinServerId}
                 onChange={(e) => setJoinServerId(e.target.value)}
-                placeholder="ID do servidor..."
+                placeholder={t('servers.serverId')}
               />
               <button type="submit" className="btn-primary" disabled={!joinServerId.trim()}>
-                Entrar
+                {t('servers.join')}
               </button>
             </form>
           </div>
@@ -257,7 +259,7 @@ export default function ServersPanel() {
   if (!currentServer) {
     return (
       <div className="panel-content centered">
-        <p>Selecione um servidor na barra lateral.</p>
+        <p>{t('servers.selectServer')}</p>
       </div>
     )
   }
@@ -272,7 +274,7 @@ export default function ServersPanel() {
             <div
               className={`server-header-avatar ${isOwner ? 'clickable' : ''}`}
               onClick={() => isOwner && serverAvatarInputRef.current?.click()}
-              title={isOwner ? 'Alterar foto do servidor' : currentServer.name}
+              title={isOwner ? t('servers.changeServerAvatar') : currentServer.name}
             >
               {serverAvatar ? (
                 <img src={serverAvatar} alt="" className="avatar-img" />
@@ -294,7 +296,7 @@ export default function ServersPanel() {
           <div className="server-header-actions">
             <button
               className="icon-btn small"
-              title={copiedServerId ? 'Copiado!' : 'Copiar ID do servidor'}
+              title={copiedServerId ? t('login.copied') : t('servers.copyServerId')}
               onClick={copyServerId}
             >
               {copiedServerId ? '✓' : '📋'}
@@ -302,7 +304,7 @@ export default function ServersPanel() {
             {isOwner && (
               <button
                 className={`icon-btn small ${showMemberList ? 'active' : ''}`}
-                title="Lista de membros"
+                title={t('servers.memberList')}
                 onClick={() => setShowMemberList(!showMemberList)}
               >
                 👥
@@ -312,7 +314,7 @@ export default function ServersPanel() {
         </div>
 
         <div className="channel-category">
-          <span className="category-label">CANAIS DE TEXTO</span>
+          <span className="category-label">{t('servers.textChannels')}</span>
           {textChannels.map((ch) => (
             <button
               key={ch.id}
@@ -326,7 +328,7 @@ export default function ServersPanel() {
         </div>
 
         <div className="channel-category">
-          <span className="category-label">CANAIS DE VOZ</span>
+          <span className="category-label">{t('servers.voiceChannels')}</span>
           {voiceChannels.map((ch) => (
             <div key={ch.id} className="voice-channel-group">
               <button
@@ -345,7 +347,7 @@ export default function ServersPanel() {
                         {getAvatar(peer.pub, peer.alias)}
                       </div>
                       <span className="voice-user-name">
-                        {peer.alias}{peer.pub === user?.pub ? ' (você)' : ''}
+                        {peer.alias}{peer.pub === user?.pub ? ` ${t('servers.you')}` : ''}
                       </span>
                     </div>
                   ))}
@@ -364,7 +366,7 @@ export default function ServersPanel() {
                   type="text"
                   value={newChannelName}
                   onChange={(e) => setNewChannelName(e.target.value)}
-                  placeholder="Nome do canal..."
+                  placeholder={t('servers.channelName')}
                   autoFocus
                 />
                 <div className="channel-type-select">
@@ -374,7 +376,7 @@ export default function ServersPanel() {
                       checked={newChannelType === 'text'}
                       onChange={() => setNewChannelType('text')}
                     />
-                    Texto
+                    {t('servers.text')}
                   </label>
                   <label>
                     <input
@@ -382,7 +384,7 @@ export default function ServersPanel() {
                       checked={newChannelType === 'voice'}
                       onChange={() => setNewChannelType('voice')}
                     />
-                    Voz
+                    {t('servers.voice')}
                   </label>
                 </div>
                 <div className="channel-form-actions">
@@ -392,7 +394,7 @@ export default function ServersPanel() {
               </form>
             ) : (
               <button className="btn-link" onClick={() => setShowNewChannel(true)}>
-                + Criar Canal
+                + {t('servers.createChannel')}
               </button>
             )}
           </div>
@@ -406,11 +408,11 @@ export default function ServersPanel() {
           <span className="chat-header-name">
             {currentServer.channels.find((c) => c.id === currentChannel)?.name || 'canal'}
           </span>
-          <span className="chat-header-badge">Servidor Criptografado</span>
+          <span className="chat-header-badge">{t('servers.encryptedServer')}</span>
           {!isOwner && (
             <button
               className={`icon-btn small member-list-toggle ${showMemberList ? 'active' : ''}`}
-              title="Lista de membros"
+              title={t('servers.memberList')}
               onClick={() => setShowMemberList(!showMemberList)}
             >
               👥
@@ -423,8 +425,8 @@ export default function ServersPanel() {
             {messages.length === 0 && (
               <div className="chat-empty">
                 <div className="chat-empty-icon">💬</div>
-                <h3>Bem-vindo ao #{currentServer.channels.find((c) => c.id === currentChannel)?.name || 'canal'}</h3>
-                <p>Este é o início do canal. Todas as mensagens são criptografadas.</p>
+                <h3>{t('servers.welcomeChannel', { channel: currentServer.channels.find((c) => c.id === currentChannel)?.name || 'canal' })}</h3>
+                <p>{t('servers.channelStart')}</p>
               </div>
             )}
 
@@ -449,7 +451,7 @@ export default function ServersPanel() {
           {showMemberList && (
             <div className="member-list-panel">
               <div className="member-list-header">
-                <h4>Membros — {members.length}</h4>
+                <h4>{t('servers.members', { count: members.length })}</h4>
               </div>
               <div className="member-list-content">
                 {members.map((m) => (
@@ -466,7 +468,7 @@ export default function ServersPanel() {
                     {isOwner && m.pub !== user?.pub && (
                       <button
                         className="icon-btn small danger"
-                        title={`Banir ${m.alias}`}
+                        title={t('servers.ban', { alias: m.alias })}
                         onClick={() => handleBan(m.pub, m.alias)}
                       >
                         🚫
@@ -484,7 +486,7 @@ export default function ServersPanel() {
             className="chat-input"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={`Enviar mensagem em #${currentServer.channels.find((c) => c.id === currentChannel)?.name || 'canal'}...`}
+            placeholder={t('servers.sendMessage', { channel: currentServer.channels.find((c) => c.id === currentChannel)?.name || 'canal' })}
           />
           <button type="submit" className="chat-send-btn" disabled={!input.trim()}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">

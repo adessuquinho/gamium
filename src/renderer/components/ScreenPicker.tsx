@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react'
 import { useAppStore } from '../store'
 import { startScreenShare } from '../network'
 import type { DesktopSource } from '../../shared/types'
+import { useI18n } from '../i18n'
 
 export default function ScreenPicker() {
+  const { t } = useI18n()
   const showScreenPicker = useAppStore((s) => s.showScreenPicker)
   const setShowScreenPicker = useAppStore((s) => s.setShowScreenPicker)
   const setScreenStream = useAppStore((s) => s.setScreenStream)
@@ -49,21 +51,21 @@ export default function ScreenPicker() {
     <div className="screen-picker-overlay" onClick={handleCancel}>
       <div className="screen-picker-modal" onClick={(e) => e.stopPropagation()}>
         <div className="screen-picker-header">
-          <h3>Compartilhar Tela</h3>
-          <p>Selecione a tela ou janela que deseja compartilhar</p>
+          <h3>{t('screen.title')}</h3>
+          <p>{t('screen.select')}</p>
           <button className="screen-picker-close" onClick={handleCancel}>✕</button>
         </div>
 
         <div className="screen-picker-content">
           {loading && (
             <div className="screen-picker-loading">
-              <p>Buscando telas disponíveis...</p>
+              <p>{t('screen.loading')}</p>
             </div>
           )}
 
           {!loading && sources.length === 0 && (
             <div className="screen-picker-empty">
-              <p>Nenhuma tela ou janela encontrada.</p>
+              <p>{t('screen.none')}</p>
             </div>
           )}
 
@@ -87,7 +89,7 @@ export default function ScreenPicker() {
         </div>
 
         <div className="screen-picker-footer">
-          <button className="btn-secondary" onClick={handleCancel}>Cancelar</button>
+          <button className="btn-secondary" onClick={handleCancel}>{t('screen.cancel')}</button>
         </div>
       </div>
     </div>

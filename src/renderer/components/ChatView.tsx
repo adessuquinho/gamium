@@ -2,8 +2,10 @@ import { useState, useEffect, useRef } from 'react'
 import { useAppStore } from '../store'
 import { sendDM, listenDMs, getProfileAvatar } from '../network'
 import type { Message } from '../../shared/types'
+import { useI18n } from '../i18n'
 
 export default function ChatView() {
+  const { t, language } = useI18n()
   const activeView = useAppStore((s) => s.activeView)
   const messages = useAppStore((s) => s.messages)
   const setMessages = useAppStore((s) => s.setMessages)
@@ -47,12 +49,12 @@ export default function ChatView() {
 
   function formatTime(ts: number) {
     const d = new Date(ts)
-    return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    return d.toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' })
   }
 
   function formatDate(ts: number) {
     const d = new Date(ts)
-    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    return d.toLocaleDateString(language, { day: '2-digit', month: '2-digit', year: 'numeric' })
   }
 
   // Agrupar mensagens por dia
@@ -79,8 +81,8 @@ export default function ChatView() {
       {/* Header */}
       <div className="chat-header">
         <span className="chat-header-icon">@</span>
-        <span className="chat-header-name">{friend?.alias || 'Mensagem Direta'}</span>
-        <span className="chat-header-badge">E2E Criptografado</span>
+        <span className="chat-header-name">{friend?.alias || t('chat.directMessage')}</span>
+        <span className="chat-header-badge">{t('chat.encrypted')}</span>
       </div>
 
       {/* Mensagens */}
@@ -88,8 +90,8 @@ export default function ChatView() {
         {messages.length === 0 && (
           <div className="chat-empty">
             <div className="chat-empty-icon">💬</div>
-            <h3>Início da conversa com {friend?.alias || 'este usuário'}</h3>
-            <p>Todas as mensagens são criptografadas ponta-a-ponta.</p>
+            <h3>{t('chat.startConversation', { name: friend?.alias || t('chat.user') })}</h3>
+            <p>{t('chat.allEncrypted')}</p>
           </div>
         )}
 
@@ -132,7 +134,7 @@ export default function ChatView() {
           className="chat-input"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder={`Mensagem para ${friend?.alias || 'usuário'}...`}
+          placeholder={t('chat.messageTo', { name: friend?.alias || t('chat.user') })}
           disabled={!targetPub}
         />
         <button type="submit" className="chat-send-btn" disabled={!input.trim()}>

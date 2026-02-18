@@ -7,8 +7,10 @@ import ServersPanel from './ServersPanel'
 import GroupsPanel from './GroupsPanel'
 import VoicePanel from './VoicePanel'
 import ScreenPicker from './ScreenPicker'
+import { useI18n } from '../i18n'
 
 export default function MainLayout() {
+  const { t } = useI18n()
   const user = useAppStore((s) => s.user)
   const activeView = useAppStore((s) => s.activeView)
   const setActiveView = useAppStore((s) => s.setActiveView)
@@ -70,12 +72,12 @@ export default function MainLayout() {
   async function showRecoveryPhraseFromMenu() {
     const phrase = getRecoveryPhrase()
     if (!phrase) {
-      alert('Nenhuma recovery phrase foi encontrada neste dispositivo.')
+      alert(t('login.deviceRecoveryNotFound'))
       return
     }
 
     await window.gamiumAPI.copyToClipboard(phrase)
-    alert('Recovery phrase copiada para a área de transferência. Guarde em local seguro.')
+    alert(t('user.recoveryCopied'))
     setShowUserMenu(false)
   }
 
@@ -83,7 +85,7 @@ export default function MainLayout() {
     const file = e.target.files?.[0]
     if (!file) return
     if (file.size > 512 * 1024) {
-      alert('Imagem muito grande. Máximo 512KB.')
+      alert(t('user.imageTooLarge'))
       return
     }
     const reader = new FileReader()
@@ -105,10 +107,10 @@ export default function MainLayout() {
         <button
           className={`server-icon home-icon ${activeView.section === 'friends' ? 'active' : ''}`}
           onClick={() => setActiveView({ section: 'friends' })}
-          title="Início"
+          title={t('nav.home')}
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M7 2c-1.66 0-3 1.34-3 3 0 1.1.6 2.06 1.5 2.58V22h3V7.58C9.4 7.06 10 6.1 10 5c0-1.66-1.34-3-3-3zm0 2a1 1 0 110 2 1 1 0 010-2z"/>
+            <path d="M12 3l9 7h-2v10h-5v-6H10v6H5V10H3l9-7z"/>
           </svg>
         </button>
 
@@ -148,7 +150,7 @@ export default function MainLayout() {
         <button
           className="server-icon add-server"
           onClick={() => setActiveView({ section: 'server', serverId: '__new__' })}
-          title="Criar/Entrar no Servidor"
+          title={t('nav.createJoinServer')}
         >
           +
         </button>
@@ -187,23 +189,23 @@ export default function MainLayout() {
           />
           <div className="user-details">
             <span className="user-name">{user?.alias}</span>
-            <span className="user-status">Online • P2P</span>
+            <span className="user-status">{t('user.onlineP2p')}</span>
           </div>
         </div>
 
         {showUserMenu && (
           <div className="user-menu">
             <button onClick={() => avatarInputRef.current?.click()} className="menu-item">
-              📷 Alterar Foto de Perfil
+              📷 {t('user.changeAvatar')}
             </button>
             <button onClick={copyUserId} className="menu-item">
-              {copiedId ? '✓ Copiado!' : '📋 Copiar Gamium ID'}
+              {copiedId ? `✓ ${t('login.copied')}` : `📋 ${t('user.copyId')}`}
             </button>
             <button onClick={showRecoveryPhraseFromMenu} className="menu-item">
-              🔑 Recuperar Chaves
+              🔑 {t('user.recoverKeys')}
             </button>
             <button onClick={() => { logout(); setShowUserMenu(false) }} className="menu-item danger">
-              🚪 Sair
+              🚪 {t('user.logout')}
             </button>
           </div>
         )}

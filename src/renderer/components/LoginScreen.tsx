@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { register, login, getCurrentUser, restoreWithRecoveryPhrase, getRecoveryPhrase } from '../network'
 import { useAppStore } from '../store'
+import { useI18n } from '../i18n'
 
 export default function LoginScreen() {
+  const { t } = useI18n()
   const setUser = useAppStore((s) => s.setUser)
   const [alias, setAlias] = useState('')
   const [password, setPassword] = useState('')
@@ -43,13 +45,13 @@ export default function LoginScreen() {
     setError('')
 
     if (!alias.trim()) {
-      setError('Nome de usuário é obrigatório.')
+      setError(t('login.usernameRequired'))
       return
     }
 
     if (isRestore) {
       if (!recoveryInput.trim()) {
-        setError('Frase de recuperação é obrigatória.')
+        setError(t('login.recoveryRequired'))
         return
       }
       setLoading(true)
@@ -67,16 +69,16 @@ export default function LoginScreen() {
             })
           }
         } else {
-          setError(result.error || 'Erro ao restaurar conta.')
+          setError(result.error || t('login.errorUnknown'))
         }
       } catch (err: any) {
-        setError(err?.message || 'Erro de conexão.')
+        setError(err?.message || t('login.connectionError'))
       } finally {
         setLoading(false)
       }
     } else {
       if (!passwordValid) {
-        setError('A senha deve ter pelo menos 16 caracteres.')
+        setError(t('login.passwordRequired'))
         return
       }
 
@@ -108,13 +110,13 @@ export default function LoginScreen() {
           if (isRegister && result.created && result.recoveryPhrase) {
             setPendingLoginAfterRecovery(true)
             setRecoveryPhrase(result.recoveryPhrase)
-            setError('Conta criada, mas houve falha ao entrar. Guarde a frase e faça login em seguida.')
+            setError(t('login.accountCreatedLoginNow'))
           } else {
-            setError(result.error || 'Erro desconhecido.')
+            setError(result.error || t('login.errorUnknown'))
           }
         }
       } catch (err: any) {
-        setError(err?.message || 'Erro de conexão.')
+        setError(err?.message || t('login.connectionError'))
       } finally {
         setLoading(false)
       }
@@ -134,7 +136,7 @@ export default function LoginScreen() {
       setPendingLoginAfterRecovery(false)
       setRecoveryPhrase(null)
       setIsRegister(false)
-      setError('Conta criada. Agora faça login para continuar.')
+      setError(t('login.accountCreatedLoginNow'))
       return
     }
 
@@ -151,7 +153,7 @@ export default function LoginScreen() {
   function showSavedRecoveryPhrase() {
     const savedPhrase = getRecoveryPhrase()
     if (!savedPhrase) {
-      setError('Nenhuma recovery phrase foi encontrada neste dispositivo.')
+      setError(t('login.deviceRecoveryNotFound'))
       return
     }
     setRecoveryPhrase(savedPhrase)
@@ -165,17 +167,17 @@ export default function LoginScreen() {
         <div className="recovery-overlay">
           <div className="recovery-card">
             <div className="recovery-header">
-              <h2>🔑 Sua Frase de Recuperação</h2>
-              <p>Guarde em um lugar seguro!</p>
+              <h2>🔑 {t('login.recoveryTitle')}</h2>
+              <p>{t('login.recoverySafe')}</p>
             </div>
 
             <div className="recovery-warning">
-              <strong>⚠️ IMPORTANTE:</strong>
+              <strong>⚠️ {t('login.recoveryImportant')}</strong>
               <ul>
-                <li>Escreva ou copie estas 12 palavras</li>
-                <li>Guarde em um lugar SEGURO (papel, cofre, etc)</li>
-                <li>Nunca compartilhe com ninguém</li>
-                <li>Use para recuperar sua conta em outro dispositivo</li>
+                <li>{t('login.recoveryStep1')}</li>
+                <li>{t('login.recoveryStep2')}</li>
+                <li>{t('login.recoveryStep3')}</li>
+                <li>{t('login.recoveryStep4')}</li>
               </ul>
             </div>
 
@@ -195,7 +197,7 @@ export default function LoginScreen() {
                 onClick={copyRecoveryPhrase}
                 className="btn-secondary"
               >
-                {copiedRecovery ? '✓ Copiado!' : '📋 Copiar Palavras'}
+                {copiedRecovery ? `✓ ${t('login.copied')}` : `📋 ${t('login.copyWords')}`}
               </button>
             </div>
 
@@ -210,14 +212,14 @@ export default function LoginScreen() {
                     if (btn) btn.disabled = !e.target.checked
                   }}
                 />
-                <span>Confirmo que guardei minha frase de recuperação em um lugar seguro</span>
+                <span>{t('login.confirmSaved')}</span>
               </label>
               <button 
                 className="btn-recovery-done btn-primary"
                 onClick={handleRecoveryPhraseDone}
                 disabled
               >
-                {pendingLoginAfterRecovery ? 'Continuar para Login' : 'Continuar para Gamium'}
+                {pendingLoginAfterRecovery ? t('login.continueLogin') : t('login.continueApp')}
               </button>
             </div>
           </div>
@@ -237,12 +239,12 @@ export default function LoginScreen() {
             </svg>
           )}
           <h1 className="login-title">Gamium</h1>
-          <p className="login-subtitle">Comunicação descentralizada e criptografada</p>
+          <p className="login-subtitle">{t('login.subtitle')}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
-            <label htmlFor="alias">Nome de Usuário</label>
+            <label htmlFor="alias">{t('login.username')}</label>
             <input
               id="alias"
               type="text"
@@ -256,21 +258,21 @@ export default function LoginScreen() {
 
           {isRestore ? (
             <div className="form-group">
-              <label htmlFor="recovery">Frase de Recuperação (12 palavras)</label>
+              <label htmlFor="recovery">{t('login.recovery')}</label>
               <textarea
                 id="recovery"
                 value={recoveryInput}
                 onChange={(e) => setRecoveryInput(e.target.value)}
-                placeholder="palavra1 palavra2 palavra3... (separadas por espaço)"
+                placeholder="palavra1 palavra2 palavra3..."
                 disabled={loading}
                 className="recovery-textarea"
               />
-              <span className="form-hint">Cole suas 12 palavras de recuperação separadas por espaço</span>
+              <span className="form-hint">{t('login.recoveryHint')}</span>
             </div>
           ) : (
             <div className="form-group">
               <label htmlFor="password">
-                Senha <span className="label-hint">(mínimo 16 caracteres)</span>
+                {t('login.password')} <span className="label-hint">({t('login.minChars')})</span>
               </label>
               <input
                 id="password"
@@ -298,7 +300,7 @@ export default function LoginScreen() {
             className="btn-primary" 
             disabled={loading || (!isRestore && !passwordValid)}
           >
-            {loading ? 'Conectando...' : isRestore ? 'Restaurar Conta' : isRegister ? 'Criar Conta' : 'Entrar'}
+            {loading ? t('login.connecting') : isRestore ? t('login.restoreAccount') : isRegister ? t('login.createAccount') : t('login.signIn')}
           </button>
 
           <div className="login-links">
@@ -311,7 +313,7 @@ export default function LoginScreen() {
                 setError('')
               }}
             >
-              {isRestore ? 'Voltar' : isRegister ? 'Já tem conta? Entrar' : 'Não tem conta? Criar'}
+              {isRestore ? t('login.back') : isRegister ? t('login.haveAccount') : t('login.noAccount')}
             </button>
             
             {!isRegister && !isRestore && (
@@ -324,14 +326,14 @@ export default function LoginScreen() {
                     setError('')
                   }}
                 >
-                  🔑 Restaurar com Recovery Phrase
+                  🔑 {t('login.restore')}
                 </button>
                 <button
                   type="button"
                   className="btn-link secondary"
                   onClick={showSavedRecoveryPhrase}
                 >
-                  👁️ Ver recovery phrase deste dispositivo
+                  👁️ {t('login.viewLocalRecovery')}
                 </button>
               </>
             )}
@@ -346,7 +348,7 @@ export default function LoginScreen() {
                   setError('')
                 }}
               >
-                ← Voltar para Login
+                ← {t('login.backToLogin')}
               </button>
             )}
           </div>
@@ -355,15 +357,15 @@ export default function LoginScreen() {
         <div className="login-info">
           <div className="info-item">
             <span className="info-icon">🔐</span>
-            <span>Criptografia ponta-a-ponta</span>
+            <span>{t('login.e2e')}</span>
           </div>
           <div className="info-item">
             <span className="info-icon">🌐</span>
-            <span>Rede descentralizada P2P</span>
+            <span>{t('login.p2p')}</span>
           </div>
           <div className="info-item">
             <span className="info-icon">🔑</span>
-            <span>Sua chave = sua identidade</span>
+            <span>{t('login.identity')}</span>
           </div>
         </div>
       </div>

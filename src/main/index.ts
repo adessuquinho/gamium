@@ -52,7 +52,7 @@ function getIconPath(): string {
   if (app.isPackaged) {
     return path.join(process.resourcesPath, 'icon.png')
   } else {
-    return path.join(__dirname, '../../resources/icon.png')
+    return path.join(__dirname, '../resources/icon.png')
   }
 }
 

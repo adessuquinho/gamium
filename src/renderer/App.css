@@ -130,6 +130,54 @@ input, button, textarea {
   -webkit-app-region: no-drag;
 }
 
+.lang-switcher {
+  position: relative;
+}
+
+.lang-btn {
+  width: 30px;
+  height: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.lang-menu {
+  position: absolute;
+  top: 28px;
+  right: 0;
+  min-width: 180px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg-elevated);
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+  z-index: 2100;
+  padding: 6px;
+}
+
+.lang-item {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.lang-item:hover,
+.lang-item.active {
+  background: var(--bg-hover);
+}
+
 .titlebar-update-btn {
   height: 22px;
   padding: 0 12px;
