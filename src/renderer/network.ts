@@ -60,6 +60,35 @@ function ensureGunReady() {
   }
 }
 
+function clearGunSessionStorage() {
+  try {
+    for (let index = sessionStorage.length - 1; index >= 0; index--) {
+      const key = sessionStorage.key(index)
+      if (!key) continue
+      if (key.includes('gun/')) {
+        sessionStorage.removeItem(key)
+      }
+    }
+  } catch {
+    // Ignore session storage cleanup errors.
+  }
+}
+
+async function resetAuthState() {
+  ensureGunReady()
+
+  try {
+    user.leave()
+  } catch {
+    // Ignore leave errors.
+  }
+
+  clearGunSessionStorage()
+  secretCache.clear()
+
+  await new Promise((resolve) => setTimeout(resolve, 80))
+}
+
 function withAuthTimeout<T>(promise: Promise<T>, timeoutMs = 15000): Promise<T> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
@@ -91,6 +120,7 @@ export async function register(
   created?: boolean
 }> {
   ensureGunReady()
+  await resetAuthState()
   const recoveryPhrase = generateRecoveryPhrase()
   saveRecoveryPhrase(recoveryPhrase)
 
@@ -141,6 +171,7 @@ export async function register(
 
 export async function login(alias: string, password: string): Promise<{ ok: boolean; error?: string; pub?: string }> {
   ensureGunReady()
+  await resetAuthState()
   try {
     return await withAuthTimeout(
       new Promise((resolve) => {
@@ -167,6 +198,7 @@ export async function restoreWithRecoveryPhrase(
   mnemonic: string
 ): Promise<{ ok: boolean; error?: string; pub?: string }> {
   ensureGunReady()
+  await resetAuthState()
   // Valida se o mnemonic é válido
   if (!validateMnemonic(mnemonic)) {
     return { ok: false, error: 'Frase de recuperação inválida. Verifique as 12 palavras.' }
@@ -208,7 +240,13 @@ export async function restoreWithRecoveryPhrase(
 
 
 export function logout() {
-  user.leave()
+  try {
+    user.leave()
+  } catch {
+    // Ignore leave errors.
+  }
+  clearGunSessionStorage()
+  secretCache.clear()
   useAppStore.getState().reset()
 }
 
@@ -579,10 +617,12 @@ export function listenDMInbox(
 
     listenedConversations.add(conversationId)
     const peerPub = pubA === me.pub ? pubB : pubA
+    if (!peerPub || peerPub === me.pub) return
 
     gun.get('dms').get(conversationId).map().on((msg: any, msgId: string) => {
       if (!msg || !msg.text || !msg.from) return
       if (msg.from === me.pub) return
+      if (msg.from !== peerPub) return
 
       const uniqueId = `${conversationId}:${msg.id || msgId}`
       if (seenMessages.has(uniqueId)) return

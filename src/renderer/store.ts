@@ -119,12 +119,20 @@ export const useAppStore = create<AppState>((set) => ({
   setMessages: (messages) => set({ messages }),
   upsertDMInbox: (item) =>
     set((s) => {
+      if (!item.peerPub || item.peerPub === s.user?.pub) {
+        return s
+      }
+
       const prev = s.dmInbox[item.peerPub]
       const unreadIncrement = item.fromPub === s.user?.pub ? 0 : 1
 
+      const cleanedInbox = Object.fromEntries(
+        Object.entries(s.dmInbox).filter(([peerPub]) => peerPub && peerPub !== s.user?.pub)
+      ) as Record<string, DMInboxItem>
+
       return {
         dmInbox: {
-          ...s.dmInbox,
+          ...cleanedInbox,
           [item.peerPub]: {
             peerPub: item.peerPub,
             fromPub: item.fromPub,
@@ -138,6 +146,7 @@ export const useAppStore = create<AppState>((set) => ({
     }),
   markDMRead: (peerPub) =>
     set((s) => {
+      if (!peerPub || peerPub === s.user?.pub) return s
       const current = s.dmInbox[peerPub]
       if (!current) return s
       return {

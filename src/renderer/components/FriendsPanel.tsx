@@ -21,7 +21,9 @@ export default function FriendsPanel() {
   const [addSuccess, setAddSuccess] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const inboxItems = Object.values(dmInbox).sort((a, b) => b.time - a.time)
+  const inboxItems = Object.values(dmInbox)
+    .filter((item) => item.peerPub && item.peerPub !== user?.pub)
+    .sort((a, b) => b.time - a.time)
   const inboxUnread = inboxItems.reduce((sum, item) => sum + item.unread, 0)
 
   // Buscar avatares de todos os amigos
