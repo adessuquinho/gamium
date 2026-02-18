@@ -338,13 +338,21 @@ export async function sendFriendRequest(targetPub: string) {
   if (!me) return
   if (targetPub === me.pub) return
 
-  // Busca o epub do alvo para derivar segredo compartilhado
-  const targetUser = gun.user(targetPub)
+  const senderAlias = await new Promise<string>((resolve) => {
+    user.get('profile').get('alias').once((alias: any) => {
+      if (typeof alias === 'string' && alias.trim()) {
+        resolve(alias)
+      } else {
+        resolve(me.alias || 'Usuário')
+      }
+    })
+    setTimeout(() => resolve(me.alias || 'Usuário'), 2500)
+  })
 
   // Salva a solicitação sob o grafo do alvo (público)
   gun.get('friend_requests').get(targetPub).get(me.pub).put({
     from: me.pub,
-    alias: me.alias,
+    alias: senderAlias,
     time: Date.now(),
   })
 }
@@ -355,10 +363,10 @@ export function listenFriendRequests(callback: (req: FriendRequest) => void) {
 
   gun.get('friend_requests').get(me.pub).map().on((data: any, key: string) => {
     if (key === me.pub || data?.from === me.pub) return
-    if (data && data.from && data.alias) {
+    if (data && data.from) {
       callback({
         from: data.from,
-        alias: data.alias,
+        alias: data.alias || 'Desconhecido',
         time: data.time || Date.now(),
       })
     }
@@ -1181,8 +1189,9 @@ export function getMyAvatar(callback: (avatar: string | null) => void) {
 export async function lookupUser(pub: string): Promise<{ alias: string; pub: string } | null> {
   return new Promise((resolve) => {
     gun.user(pub).once((data: any) => {
-      if (data && data.alias) {
-        resolve({ alias: data.alias, pub })
+      const alias = data?.alias || data?.profile?.alias
+      if (data && alias) {
+        resolve({ alias, pub })
       } else {
         resolve(null)
       }
