@@ -9,6 +9,7 @@ export default function ChatView() {
   const activeView = useAppStore((s) => s.activeView)
   const messages = useAppStore((s) => s.messages)
   const setMessages = useAppStore((s) => s.setMessages)
+  const markDMRead = useAppStore((s) => s.markDMRead)
   const user = useAppStore((s) => s.user)
   const friends = useAppStore((s) => s.friends)
   const myAvatar = useAppStore((s) => s.myAvatar)
@@ -23,6 +24,7 @@ export default function ChatView() {
 
   useEffect(() => {
     if (!targetPub) return
+    markDMRead(targetPub)
     setMessages([])
     listenDMs(targetPub, (msgs) => {
       setMessages(msgs)

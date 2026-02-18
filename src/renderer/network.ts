@@ -555,6 +555,75 @@ export function listenDMs(targetPub: string, callback: (messages: Message[]) => 
   })
 }
 
+export function listenDMInbox(
+  callback: (item: {
+    peerPub: string
+    fromPub: string
+    fromAlias: string
+    text: string
+    time: number
+  }) => void
+) {
+  const me = getCurrentUser()
+  if (!me) return
+
+  const listenedConversations = new Set<string>()
+  const seenMessages = new Set<string>()
+
+  gun.get('dms').map().on((data: any, conversationId: string) => {
+    if (!conversationId || !conversationId.includes('::')) return
+    if (listenedConversations.has(conversationId)) return
+
+    const [pubA, pubB] = conversationId.split('::')
+    if (pubA !== me.pub && pubB !== me.pub) return
+
+    listenedConversations.add(conversationId)
+    const peerPub = pubA === me.pub ? pubB : pubA
+
+    gun.get('dms').get(conversationId).map().on((msg: any, msgId: string) => {
+      if (!msg || !msg.text || !msg.from) return
+      if (msg.from === me.pub) return
+
+      const uniqueId = `${conversationId}:${msg.id || msgId}`
+      if (seenMessages.has(uniqueId)) return
+      seenMessages.add(uniqueId)
+
+      getSharedSecret(peerPub).then((secret) => {
+        if (!secret) {
+          callback({
+            peerPub,
+            fromPub: msg.from,
+            fromAlias: msg.fromAlias || 'Desconhecido',
+            text: '[mensagem criptografada]',
+            time: msg.time || Date.now(),
+          })
+          return
+        }
+
+        SEA.decrypt(msg.text, secret)
+          .then((decrypted: any) => {
+            callback({
+              peerPub,
+              fromPub: msg.from,
+              fromAlias: msg.fromAlias || 'Desconhecido',
+              text: decrypted || '[mensagem criptografada]',
+              time: msg.time || Date.now(),
+            })
+          })
+          .catch(() => {
+            callback({
+              peerPub,
+              fromPub: msg.from,
+              fromAlias: msg.fromAlias || 'Desconhecido',
+              text: '[mensagem criptografada]',
+              time: msg.time || Date.now(),
+            })
+          })
+      })
+    })
+  })
+}
+
 // ─── Servidores ─────────────────────────────────────────────────────────────────
 
 export async function createServer(name: string): Promise<string> {
@@ -617,15 +686,38 @@ export async function joinServer(serverId: string) {
     joinedAt: Date.now(),
   })
 
+  // Salva imediatamente no perfil local para o servidor aparecer na barra lateral
+  user.get('servers').get(serverId).put({
+    id: serverId,
+    name: serverId,
+    encryptionKey: '',
+  })
+
   // Busca informações do servidor
   gun.get('servers').get(serverId).once((data: any) => {
-    if (data) {
-      user.get('servers').get(serverId).put({
-        id: serverId,
-        name: data.name,
-        encryptionKey: '', // Será compartilhado pelo dono
-      })
-    }
+    user.get('servers').get(serverId).put({
+      id: serverId,
+      name: data?.name || serverId,
+      encryptionKey: '', // Será compartilhado pelo dono
+    })
+  })
+}
+
+export async function serverExists(serverId: string): Promise<boolean> {
+  return await new Promise((resolve) => {
+    let resolved = false
+
+    gun.get('servers').get(serverId).once((data: any) => {
+      if (resolved) return
+      resolved = true
+      resolve(Boolean(data?.id || data?.name || data?.owner))
+    })
+
+    setTimeout(() => {
+      if (resolved) return
+      resolved = true
+      resolve(false)
+    }, 5000)
   })
 }
 
@@ -634,31 +726,44 @@ export function listenUserServers(callback: (servers: Server[]) => void) {
 
   user.get('servers').map().on((data: any, key: string) => {
     if (data && data.id) {
-      // Busca info completa do servidor
-      gun.get('servers').get(key).once((serverData: any) => {
-        if (serverData) {
-          servers[key] = {
-            id: key,
-            name: serverData.name || data.name,
-            owner: serverData.owner || '',
-            channels: [],
-            createdAt: serverData.createdAt || 0,
-            encryptionKey: data.encryptionKey,
-          }
-
-          // Busca canais
-          gun.get('servers').get(key).get('channels').map().once((ch: any, chKey: string) => {
-            if (ch && ch.id) {
-              const srv = servers[key]
-              if (srv && !srv.channels.find((c) => c.id === chKey)) {
-                srv.channels.push({ id: chKey, name: ch.name, type: ch.type || 'text' })
-              }
-            }
-            callback(Object.values(servers))
-          })
-
-          callback(Object.values(servers))
+      // Cria entrada local imediatamente (evita sumir da sidebar por atraso de sync)
+      if (!servers[key]) {
+        servers[key] = {
+          id: key,
+          name: data.name || key,
+          owner: '',
+          channels: [],
+          createdAt: 0,
+          encryptionKey: data.encryptionKey,
         }
+      }
+      callback(Object.values(servers))
+
+      // Busca e mantém info completa do servidor
+      gun.get('servers').get(key).on((serverData: any) => {
+        const srv = servers[key]
+        if (!srv) return
+
+        if (serverData) {
+          srv.name = serverData.name || data.name || key
+          srv.owner = serverData.owner || ''
+          srv.createdAt = serverData.createdAt || 0
+          srv.encryptionKey = data.encryptionKey
+        }
+
+        callback(Object.values(servers))
+      })
+
+      // Busca canais
+      gun.get('servers').get(key).get('channels').map().on((ch: any, chKey: string) => {
+        if (!ch || !ch.id) return
+        const srv = servers[key]
+        if (!srv) return
+
+        if (!srv.channels.find((c) => c.id === chKey)) {
+          srv.channels.push({ id: chKey, name: ch.name, type: ch.type || 'text' })
+        }
+        callback(Object.values(servers))
       })
     } else if (!data) {
       delete servers[key]

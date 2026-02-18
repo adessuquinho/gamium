@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useAppStore } from '../store'
-import { listenFriends, listenFriendRequests, listenUserServers, listenUserGroups, listenGroupInvites, acceptGroupInvite, logout, setProfileAvatar, getMyAvatar, getServerAvatar, getRecoveryPhrase } from '../network'
+import { listenFriends, listenFriendRequests, listenUserServers, listenUserGroups, listenGroupInvites, acceptGroupInvite, logout, setProfileAvatar, getMyAvatar, getServerAvatar, getRecoveryPhrase, listenDMInbox } from '../network'
 import ChatView from './ChatView'
 import FriendsPanel from './FriendsPanel'
 import ServersPanel from './ServersPanel'
@@ -22,6 +22,7 @@ export default function MainLayout() {
   const setServers = useAppStore((s) => s.setServers)
   const setGroups = useAppStore((s) => s.setGroups)
   const addFriendRequest = useAppStore((s) => s.addFriendRequest)
+  const upsertDMInbox = useAppStore((s) => s.upsertDMInbox)
 
   const myAvatar = useAppStore((s) => s.myAvatar)
   const setMyAvatar = useAppStore((s) => s.setMyAvatar)
@@ -37,6 +38,7 @@ export default function MainLayout() {
   useEffect(() => {
     listenFriends((f) => setFriends(f))
     listenFriendRequests((req) => addFriendRequest(req))
+    listenDMInbox((item) => upsertDMInbox(item))
     listenUserServers((s) => setServers(s))
     listenUserGroups((g) => setGroups(g))
     listenGroupInvites((invite) => {

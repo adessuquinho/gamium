@@ -6,6 +6,15 @@
 import { create } from 'zustand'
 import type { UserIdentity, Friend, FriendRequest, Server, Group, Message, ActiveView, VoicePeer, DesktopSource } from '../shared/types'
 
+export interface DMInboxItem {
+  peerPub: string
+  fromPub: string
+  fromAlias: string
+  text: string
+  time: number
+  unread: number
+}
+
 interface AppState {
   // Autenticação
   user: UserIdentity | null
@@ -35,6 +44,11 @@ interface AppState {
   // Mensagens (do chat ativo)
   messages: Message[]
   setMessages: (m: Message[]) => void
+
+  // Inbox de DMs
+  dmInbox: Record<string, DMInboxItem>
+  upsertDMInbox: (item: Omit<DMInboxItem, 'unread'>) => void
+  markDMRead: (peerPub: string) => void
 
   // Navegação
   activeView: ActiveView
@@ -73,6 +87,7 @@ const initialState = {
   servers: [],
   groups: [],
   messages: [],
+  dmInbox: {} as Record<string, DMInboxItem>,
   activeView: { section: 'friends' as const },
   inVoice: false,
   voiceChannelPath: null,
@@ -102,6 +117,39 @@ export const useAppStore = create<AppState>((set) => ({
   setServers: (servers) => set({ servers }),
   setGroups: (groups) => set({ groups }),
   setMessages: (messages) => set({ messages }),
+  upsertDMInbox: (item) =>
+    set((s) => {
+      const prev = s.dmInbox[item.peerPub]
+      const unreadIncrement = item.fromPub === s.user?.pub ? 0 : 1
+
+      return {
+        dmInbox: {
+          ...s.dmInbox,
+          [item.peerPub]: {
+            peerPub: item.peerPub,
+            fromPub: item.fromPub,
+            fromAlias: item.fromAlias,
+            text: item.text,
+            time: item.time,
+            unread: (prev?.unread || 0) + unreadIncrement,
+          },
+        },
+      }
+    }),
+  markDMRead: (peerPub) =>
+    set((s) => {
+      const current = s.dmInbox[peerPub]
+      if (!current) return s
+      return {
+        dmInbox: {
+          ...s.dmInbox,
+          [peerPub]: {
+            ...current,
+            unread: 0,
+          },
+        },
+      }
+    }),
   setActiveView: (activeView) => set({ activeView, messages: [] }),
 
   setInVoice: (inVoice, voiceChannelPath = null) => set({ inVoice, voiceChannelPath }),

@@ -3,6 +3,7 @@ import { useAppStore } from '../store'
 import {
   createServer,
   joinServer,
+  serverExists,
   sendServerMessage,
   listenServerMessages,
   createServerChannel,
@@ -123,9 +124,16 @@ export default function ServersPanel() {
     e.preventDefault()
     if (!joinServerId.trim()) return
 
-    await joinServer(joinServerId.trim())
+    const targetId = joinServerId.trim()
+    const exists = await serverExists(targetId)
+    if (!exists) {
+      alert(t('servers.notFound'))
+      return
+    }
+
+    await joinServer(targetId)
     setJoinServerId('')
-    setActiveView({ section: 'server', serverId: joinServerId.trim(), channelId: 'general' })
+    setActiveView({ section: 'server', serverId: targetId, channelId: 'general' })
   }
 
   async function handleSend(e: React.FormEvent) {

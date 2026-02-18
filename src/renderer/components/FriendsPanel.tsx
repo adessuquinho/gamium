@@ -7,17 +7,22 @@ export default function FriendsPanel() {
   const { t } = useI18n()
   const friends = useAppStore((s) => s.friends)
   const friendRequests = useAppStore((s) => s.friendRequests)
+  const dmInbox = useAppStore((s) => s.dmInbox)
+  const markDMRead = useAppStore((s) => s.markDMRead)
   const removeFriendRequest = useAppStore((s) => s.removeFriendRequest)
   const setActiveView = useAppStore((s) => s.setActiveView)
   const user = useAppStore((s) => s.user)
   const avatarCache = useAppStore((s) => s.avatarCache)
   const setCachedAvatar = useAppStore((s) => s.setCachedAvatar)
 
-  const [tab, setTab] = useState<'online' | 'all' | 'requests' | 'add'>('all')
+  const [tab, setTab] = useState<'online' | 'all' | 'inbox' | 'requests' | 'add'>('all')
   const [friendId, setFriendId] = useState('')
   const [addError, setAddError] = useState('')
   const [addSuccess, setAddSuccess] = useState('')
   const [loading, setLoading] = useState(false)
+
+  const inboxItems = Object.values(dmInbox).sort((a, b) => b.time - a.time)
+  const inboxUnread = inboxItems.reduce((sum, item) => sum + item.unread, 0)
 
   // Buscar avatares de todos os amigos
   useEffect(() => {
@@ -69,6 +74,7 @@ export default function FriendsPanel() {
   }
 
   function openDM(pub: string) {
+    markDMRead(pub)
     setActiveView({ section: 'dm', dmPub: pub })
   }
 
@@ -83,6 +89,10 @@ export default function FriendsPanel() {
         <div className="panel-tabs">
           <button className={`tab ${tab === 'all' ? 'active' : ''}`} onClick={() => setTab('all')}>
             {t('friends.all')}
+          </button>
+          <button className={`tab ${tab === 'inbox' ? 'active' : ''}`} onClick={() => setTab('inbox')}>
+            {t('friends.inbox')}
+            {inboxUnread > 0 && <span className="badge">{inboxUnread}</span>}
           </button>
           <button className={`tab ${tab === 'requests' ? 'active' : ''}`} onClick={() => setTab('requests')}>
             {t('friends.pending')}
@@ -141,6 +151,44 @@ export default function FriendsPanel() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Inbox de DMs */}
+        {tab === 'inbox' && (
+          <div className="friends-list">
+            <h3 className="list-header">{t('friends.inboxTitle', { count: inboxItems.length })}</h3>
+            {inboxItems.length === 0 && (
+              <div className="empty-state">
+                <p>{t('friends.inboxEmpty')}</p>
+              </div>
+            )}
+            {inboxItems.map((item) => {
+              const friend = friends.find((f) => f.pub === item.peerPub)
+              const displayName = friend?.alias || item.fromAlias
+
+              return (
+                <div key={item.peerPub} className="friend-item" onClick={() => openDM(item.peerPub)}>
+                  <div className="friend-avatar">
+                    {avatarCache[item.peerPub] ? (
+                      <img src={avatarCache[item.peerPub]} alt="" className="avatar-img" />
+                    ) : (
+                      displayName?.charAt(0).toUpperCase()
+                    )}
+                  </div>
+                  <div className="friend-info">
+                    <span className="friend-name">{displayName}</span>
+                    <span className="friend-id">{item.text}</span>
+                  </div>
+                  <div className="friend-actions">
+                    {item.unread > 0 && <span className="badge">{item.unread}</span>}
+                    <button className="icon-btn" title={t('friends.msg')} onClick={() => openDM(item.peerPub)}>
+                      💬
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
 

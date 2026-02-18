@@ -9,14 +9,18 @@ import { useI18n } from './i18n'
 export default function App() {
   const user = useAppStore((s) => s.user)
   const { t, language, rtl } = useI18n()
+  const BTC_WALLET = 'bc1q3qqgrcrtnsz9ch7weyj4nhks6kp9cdsn2dm5h4'
+  const ETH_WALLET = '0x1BD4591757311e6b0aF06c1fDbCc6b0730BdC64F'
   const [updateAvailable, setUpdateAvailable] = useState(false)
   const [updateVersion, setUpdateVersion] = useState('')
   const [downloadProgress, setDownloadProgress] = useState(0)
   const [updateDownloaded, setUpdateDownloaded] = useState(false)
   const [updateError, setUpdateError] = useState('')
   const [showUpdateModal, setShowUpdateModal] = useState(false)
+  const [showSupportModal, setShowSupportModal] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
   const [installPending, setInstallPending] = useState(false)
+  const [copiedWallet, setCopiedWallet] = useState<'btc' | 'eth' | null>(null)
 
   useEffect(() => {
     initGun()
@@ -109,6 +113,13 @@ export default function App() {
     }
   }
 
+  async function copyWallet(type: 'btc' | 'eth') {
+    const value = type === 'btc' ? BTC_WALLET : ETH_WALLET
+    await window.gamiumAPI.copyToClipboard(value)
+    setCopiedWallet(type)
+    setTimeout(() => setCopiedWallet(null), 2000)
+  }
+
   return (
     <div className="app-root">
       {/* Barra de título customizada */}
@@ -118,6 +129,9 @@ export default function App() {
         </div>
         <div className="titlebar-actions">
           <LanguageSwitcher />
+          <button className="titlebar-support-btn" onClick={() => setShowSupportModal(true)} title={t('support.title')}>
+            {t('support.button')}
+          </button>
           {(updateAvailable || updateDownloaded) && (
             <button
               className="titlebar-update-btn"
@@ -174,6 +188,37 @@ export default function App() {
               )}
               {isDownloading && <p>{t('title.downloading')}</p>}
               {updateDownloaded && <p>{t('title.downloadedRestarting')}</p>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSupportModal && (
+        <div className="update-modal">
+          <div className="update-modal-card support-modal-card">
+            <div className="update-modal-header">
+              <strong>{t('support.title')}</strong>
+              <button className="update-modal-close" onClick={() => setShowSupportModal(false)}>✕</button>
+            </div>
+
+            <div className="update-modal-body">
+              <p>{t('support.subtitle')}</p>
+
+              <div className="wallet-card">
+                <span className="wallet-label">BTC</span>
+                <code className="wallet-value">{BTC_WALLET}</code>
+                <button className="update-modal-download" onClick={() => copyWallet('btc')}>
+                  {copiedWallet === 'btc' ? t('login.copied') : t('support.copyBtc')}
+                </button>
+              </div>
+
+              <div className="wallet-card">
+                <span className="wallet-label">ETH</span>
+                <code className="wallet-value">{ETH_WALLET}</code>
+                <button className="update-modal-download" onClick={() => copyWallet('eth')}>
+                  {copiedWallet === 'eth' ? t('login.copied') : t('support.copyEth')}
+                </button>
+              </div>
             </div>
           </div>
         </div>
