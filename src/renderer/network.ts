@@ -43,7 +43,7 @@ export function initGun() {
     localStorage: true,
     radisk: true,
   })
-  user = gun.user().recall({ sessionStorage: true })
+  user = gun.user()
   return gun
 }
 
@@ -60,7 +60,7 @@ function ensureGunReady() {
   }
 }
 
-function clearGunSessionStorage() {
+function clearGunAuthStorage() {
   try {
     for (let index = sessionStorage.length - 1; index >= 0; index--) {
       const key = sessionStorage.key(index)
@@ -71,6 +71,18 @@ function clearGunSessionStorage() {
     }
   } catch {
     // Ignore session storage cleanup errors.
+  }
+
+  try {
+    for (let index = localStorage.length - 1; index >= 0; index--) {
+      const key = localStorage.key(index)
+      if (!key) continue
+      if (key.includes('gun/')) {
+        localStorage.removeItem(key)
+      }
+    }
+  } catch {
+    // Ignore local storage cleanup errors.
   }
 }
 
@@ -83,8 +95,10 @@ async function resetAuthState() {
     // Ignore leave errors.
   }
 
-  clearGunSessionStorage()
+  clearGunAuthStorage()
   secretCache.clear()
+
+  user = gun.user()
 
   await new Promise((resolve) => setTimeout(resolve, 80))
 }
@@ -245,8 +259,11 @@ export function logout() {
   } catch {
     // Ignore leave errors.
   }
-  clearGunSessionStorage()
+  clearGunAuthStorage()
   secretCache.clear()
+  if (gun) {
+    user = gun.user()
+  }
   useAppStore.getState().reset()
 }
 
@@ -672,9 +689,6 @@ export async function createServer(name: string): Promise<string> {
 
   const serverId = `srv-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 
-  // Gera chave de criptografia do servidor
-  const serverKey = await SEA.work(serverId + Date.now(), me.pub)
-
   const serverData = {
     id: serverId,
     name,
@@ -709,7 +723,7 @@ export async function createServer(name: string): Promise<string> {
   user.get('servers').get(serverId).put({
     id: serverId,
     name,
-    encryptionKey: serverKey,
+    encryptionKey: serverId,
   })
 
   return serverId
@@ -730,7 +744,7 @@ export async function joinServer(serverId: string) {
   user.get('servers').get(serverId).put({
     id: serverId,
     name: serverId,
-    encryptionKey: '',
+    encryptionKey: serverId,
   })
 
   // Busca informações do servidor
@@ -738,7 +752,7 @@ export async function joinServer(serverId: string) {
     user.get('servers').get(serverId).put({
       id: serverId,
       name: data?.name || serverId,
-      encryptionKey: '', // Será compartilhado pelo dono
+      encryptionKey: serverId,
     })
   })
 }
@@ -831,7 +845,7 @@ export function listenUserServers(callback: (servers: Server[]) => void) {
           user.get('servers').get(serverId).put({
             id: serverId,
             name: serverData?.name || serverId,
-            encryptionKey: '',
+            encryptionKey: serverId,
           })
           return
         }
@@ -847,12 +861,7 @@ export async function sendServerMessage(serverId: string, channelId: string, tex
   const me = getCurrentUser()
   if (!me) return
 
-  // Busca a chave do servidor do store local
-  const serverKey = await new Promise<string>((resolve) => {
-    user.get('servers').get(serverId).once((data: any) => {
-      resolve(data?.encryptionKey || serverId)
-    })
-  })
+  const serverKey = serverId
 
   const encText = await SEA.encrypt(text, serverKey)
   const sig = await SEA.sign(encText, user._.sea)
@@ -870,15 +879,24 @@ export async function sendServerMessage(serverId: string, channelId: string, tex
 
 export function listenServerMessages(serverId: string, channelId: string, callback: (msgs: Message[]) => void) {
   const messages: Record<string, Message> = {}
+  let legacyServerKey = ''
 
-  // Busca chave de forma segura antes de escutar
   user.get('servers').get(serverId).once((srvData: any) => {
-    const serverKey = srvData?.encryptionKey || serverId
+    legacyServerKey = typeof srvData?.encryptionKey === 'string' ? srvData.encryptionKey : ''
+  })
 
-    gun.get('servers').get(serverId).get('channels').get(channelId).get('messages').map().on((data: any, key: string) => {
-      if (!data || !data.text || !data.from) return
+  gun.get('servers').get(serverId).get('channels').get(channelId).get('messages').map().on((data: any, key: string) => {
+    if (!data || !data.text || !data.from) return
 
-      SEA.decrypt(data.text, serverKey).then((decrypted: any) => {
+    SEA.decrypt(data.text, serverId)
+      .then(async (decryptedPrimary: any) => {
+        if (decryptedPrimary) return decryptedPrimary
+        if (legacyServerKey && legacyServerKey !== serverId) {
+          return SEA.decrypt(data.text, legacyServerKey)
+        }
+        return null
+      })
+      .then((decrypted: any) => {
         messages[key] = {
           id: data.id || key,
           text: decrypted || data.text,
@@ -888,7 +906,8 @@ export function listenServerMessages(serverId: string, channelId: string, callba
           sig: data.sig,
         }
         callback(Object.values(messages).sort((a, b) => a.time - b.time))
-      }).catch(() => {
+      })
+      .catch(() => {
         messages[key] = {
           id: data.id || key,
           text: '[criptografado]',
@@ -898,7 +917,6 @@ export function listenServerMessages(serverId: string, channelId: string, callba
         }
         callback(Object.values(messages).sort((a, b) => a.time - b.time))
       })
-    })
   })
 }
 
