@@ -743,6 +743,14 @@ export async function joinServer(serverId: string) {
   })
 }
 
+export async function leaveServer(serverId: string) {
+  const me = getCurrentUser()
+  if (!me) return
+
+  gun.get('servers').get(serverId).get('members').get(me.pub).put(null)
+  user.get('servers').get(serverId).put(null)
+}
+
 export async function serverExists(serverId: string): Promise<boolean> {
   return await new Promise((resolve) => {
     let resolved = false
@@ -763,6 +771,7 @@ export async function serverExists(serverId: string): Promise<boolean> {
 
 export function listenUserServers(callback: (servers: Server[]) => void) {
   const servers: Record<string, Server> = {}
+  const me = getCurrentUser()
 
   user.get('servers').map().on((data: any, key: string) => {
     if (data && data.id) {
@@ -810,6 +819,28 @@ export function listenUserServers(callback: (servers: Server[]) => void) {
       callback(Object.values(servers))
     }
   })
+
+  // Reconciliação por membership público: garante que servidor onde o usuário é membro
+  // apareça na sidebar mesmo se user.get('servers') não tiver sincronizado.
+  if (me) {
+    gun.get('servers').map().on((serverData: any, serverId: string) => {
+      if (!serverId || !serverData) return
+
+      gun.get('servers').get(serverId).get('members').get(me.pub).on((member: any) => {
+        if (member && !member.banned) {
+          user.get('servers').get(serverId).put({
+            id: serverId,
+            name: serverData?.name || serverId,
+            encryptionKey: '',
+          })
+          return
+        }
+
+        // Se deixou de ser membro, remove da lista local
+        user.get('servers').get(serverId).put(null)
+      })
+    })
+  }
 }
 
 export async function sendServerMessage(serverId: string, channelId: string, text: string) {

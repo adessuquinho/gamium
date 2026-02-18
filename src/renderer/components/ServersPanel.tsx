@@ -3,6 +3,7 @@ import { useAppStore } from '../store'
 import {
   createServer,
   joinServer,
+  leaveServer,
   serverExists,
   sendServerMessage,
   listenServerMessages,
@@ -205,6 +206,14 @@ export default function ServersPanel() {
     setTimeout(() => setCopiedServerId(false), 2000)
   }
 
+  async function handleLeaveServer() {
+    if (!currentServer) return
+    if (!confirm(t('servers.confirmLeave', { name: currentServer.name }))) return
+
+    await leaveServer(currentServer.id)
+    setActiveView({ section: 'friends' })
+  }
+
   function formatTime(ts: number) {
     return new Date(ts).toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' })
   }
@@ -308,6 +317,13 @@ export default function ServersPanel() {
               onClick={copyServerId}
             >
               {copiedServerId ? '✓' : '📋'}
+            </button>
+            <button
+              className="icon-btn small danger"
+              title={t('servers.leave')}
+              onClick={handleLeaveServer}
+            >
+              🚪
             </button>
             {isOwner && (
               <button
