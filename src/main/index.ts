@@ -49,11 +49,24 @@ let tray: Tray | null = null
 let isQuitting = false
 
 function getIconPath(): string {
-  if (app.isPackaged) {
-    return path.join(process.resourcesPath, 'icon.png')
-  } else {
-    return path.join(__dirname, '../resources/icon.png')
+  const candidates = app.isPackaged
+    ? [
+        path.join(process.resourcesPath, 'icon.png'),
+        path.join(process.resourcesPath, 'resources', 'icon.png'),
+        path.join(app.getAppPath(), 'resources', 'icon.png'),
+      ]
+    : [
+        path.join(__dirname, '../resources/icon.png'),
+        path.join(process.cwd(), 'resources', 'icon.png'),
+      ]
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate
+    }
   }
+
+  return candidates[0]
 }
 
 function createWindow(): void {
@@ -166,11 +179,21 @@ ipcMain.handle('clipboard:write', (_event, text: string) => {
   return true
 })
 
-ipcMain.handle('app:getIconDataUrl', () => {
+ipcMain.handle('app:getIconDataUrl', async () => {
   const iconPath = getIconPath()
-  const icon = nativeImage.createFromPath(iconPath)
-  if (icon.isEmpty()) return null
-  return icon.toDataURL()
+  const iconFromPath = nativeImage.createFromPath(iconPath)
+  if (!iconFromPath.isEmpty()) return iconFromPath.toDataURL()
+
+  try {
+    const fileIcon = await app.getFileIcon(process.execPath, { size: 'normal' })
+    if (!fileIcon.isEmpty()) {
+      return fileIcon.toDataURL()
+    }
+  } catch {
+    // Ignore executable icon fallback errors.
+  }
+
+  return null
 })
 
 ipcMain.handle('app:checkForUpdates', async () => {

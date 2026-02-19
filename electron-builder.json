@@ -5,6 +5,12 @@
     "output": "release",
     "buildResources": "resources"
   },
+  "extraResources": [
+    {
+      "from": "resources/icon.png",
+      "to": "icon.png"
+    }
+  ],
   "files": [
     "dist/**/*",
     "dist-electron/**/*"
