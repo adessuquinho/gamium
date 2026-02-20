@@ -8,6 +8,7 @@ import {
   sendServerMessage,
   listenServerMessages,
   createServerChannel,
+  renameServerChannel,
   joinVoiceChannel,
   leaveVoiceChannel,
   getProfileAvatar,
@@ -37,12 +38,11 @@ export default function ServersPanel() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [selectedMedia, setSelectedMedia] = useState<{ type: 'image' | 'video'; dataUrl: string; fileName?: string } | null>(null)
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null)
   const [newServerName, setNewServerName] = useState('')
   const [joinServerId, setJoinServerId] = useState('')
-  const [newChannelName, setNewChannelName] = useState('')
-  const [newChannelType, setNewChannelType] = useState<'text' | 'voice'>('text')
-  const [showNewChannel, setShowNewChannel] = useState(false)
   const [showMemberList, setShowMemberList] = useState(false)
+  const [showServerMenu, setShowServerMenu] = useState(false)
   const [members, setMembers] = useState<ServerMember[]>([])
   const [serverAvatar, setServerAvatarState] = useState<string | null>(null)
   const [voiceChannelPeers, setVoiceChannelPeers] = useState<Record<string, Array<{ pub: string; alias: string }>>>({})
@@ -50,6 +50,7 @@ export default function ServersPanel() {
   const messagesEnd = useRef<HTMLDivElement>(null)
   const serverAvatarInputRef = useRef<HTMLInputElement>(null)
   const mediaInputRef = useRef<HTMLInputElement>(null)
+  const serverMenuRef = useRef<HTMLDivElement>(null)
 
   const isNew = activeView.serverId === '__new__'
   const currentServer = servers.find((s) => s.id === activeView.serverId)
@@ -111,6 +112,18 @@ export default function ServersPanel() {
   useEffect(() => {
     messagesEnd.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (!serverMenuRef.current) return
+      if (!serverMenuRef.current.contains(event.target as Node)) {
+        setShowServerMenu(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   async function handleCreateServer(e: React.FormEvent) {
     e.preventDefault()
@@ -200,12 +213,19 @@ export default function ServersPanel() {
     }
   }
 
-  function handleCreateChannel(e: React.FormEvent) {
-    e.preventDefault()
-    if (!newChannelName.trim() || !currentServer) return
-    createServerChannel(currentServer.id, newChannelName.trim(), newChannelType)
-    setNewChannelName('')
-    setShowNewChannel(false)
+  function handleCreateChannel(type: 'text' | 'voice') {
+    if (!isOwner || !currentServer) return
+    const nextName = window.prompt(type === 'text' ? 'Nome do canal de texto:' : 'Nome do canal de voz:')
+    if (!nextName || !nextName.trim()) return
+    createServerChannel(currentServer.id, nextName.trim(), type)
+    setShowServerMenu(false)
+  }
+
+  function handleRenameChannel(channel: Channel) {
+    if (!isOwner || !currentServer) return
+    const nextName = window.prompt('Novo nome do canal:', channel.name)
+    if (!nextName || !nextName.trim() || nextName.trim() === channel.name) return
+    renameServerChannel(currentServer.id, channel.id, nextName.trim(), channel.type)
   }
 
   function handleServerAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -235,6 +255,7 @@ export default function ServersPanel() {
     if (!currentServer) return
     window.gamiumAPI.copyToClipboard(currentServer.id)
     setCopiedServerId(true)
+    setShowServerMenu(false)
     setTimeout(() => setCopiedServerId(false), 2000)
   }
 
@@ -243,6 +264,7 @@ export default function ServersPanel() {
     if (!confirm(t('servers.confirmLeave', { name: currentServer.name }))) return
 
     await leaveServer(currentServer.id)
+    setShowServerMenu(false)
     setActiveView({ section: 'friends' })
   }
 
@@ -342,29 +364,47 @@ export default function ServersPanel() {
             )}
             <h3>{currentServer.name}</h3>
           </div>
-          <div className="server-header-actions">
+          <div className="server-header-actions" ref={serverMenuRef}>
             <button
-              className="icon-btn small"
-              title={copiedServerId ? t('login.copied') : t('servers.copyServerId')}
-              onClick={copyServerId}
+              className={`icon-btn small ${showServerMenu ? 'active' : ''}`}
+              title="Menu do servidor"
+              onClick={() => setShowServerMenu((prev) => !prev)}
             >
-              {copiedServerId ? '✓' : '📋'}
+              ⋯
             </button>
-            <button
-              className="icon-btn small danger"
-              title={t('servers.leave')}
-              onClick={handleLeaveServer}
-            >
-              🚪
-            </button>
-            {isOwner && (
-              <button
-                className={`icon-btn small ${showMemberList ? 'active' : ''}`}
-                title={t('servers.memberList')}
-                onClick={() => setShowMemberList(!showMemberList)}
-              >
-                👥
-              </button>
+
+            {showServerMenu && (
+              <div className="server-dropdown-menu">
+                <button className="server-dropdown-item" onClick={copyServerId}>
+                  {copiedServerId ? `✓ ${t('login.copied')}` : `📋 ${t('servers.copyServerId')}`}
+                </button>
+                <button
+                  className={`server-dropdown-item ${showMemberList ? 'active' : ''}`}
+                  onClick={() => {
+                    setShowMemberList(!showMemberList)
+                    setShowServerMenu(false)
+                  }}
+                >
+                  👥 {t('servers.memberList')}
+                </button>
+
+                {isOwner && (
+                  <>
+                    <div className="server-dropdown-divider" />
+                    <button className="server-dropdown-item" onClick={() => handleCreateChannel('text')}>
+                      + {t('servers.createChannel')} ({t('servers.text')})
+                    </button>
+                    <button className="server-dropdown-item" onClick={() => handleCreateChannel('voice')}>
+                      + {t('servers.createChannel')} ({t('servers.voice')})
+                    </button>
+                  </>
+                )}
+
+                <div className="server-dropdown-divider" />
+                <button className="server-dropdown-item danger" onClick={handleLeaveServer}>
+                  🚪 {t('servers.leave')}
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -372,14 +412,24 @@ export default function ServersPanel() {
         <div className="channel-category">
           <span className="category-label">{t('servers.textChannels')}</span>
           {textChannels.map((ch) => (
-            <button
-              key={ch.id}
-              className={`channel-item ${currentChannel === ch.id ? 'active' : ''}`}
-              onClick={() => selectChannel(ch)}
-            >
-              <span className="channel-hash">#</span>
-              {ch.name}
-            </button>
+            <div key={ch.id} className="channel-row">
+              <button
+                className={`channel-item ${currentChannel === ch.id ? 'active' : ''}`}
+                onClick={() => selectChannel(ch)}
+              >
+                <span className="channel-hash">#</span>
+                {ch.name}
+              </button>
+              {isOwner && (
+                <button
+                  className="icon-btn small channel-edit-btn"
+                  title="Editar nome do canal"
+                  onClick={() => handleRenameChannel(ch)}
+                >
+                  ✎
+                </button>
+              )}
+            </div>
           ))}
         </div>
 
@@ -387,13 +437,24 @@ export default function ServersPanel() {
           <span className="category-label">{t('servers.voiceChannels')}</span>
           {voiceChannels.map((ch) => (
             <div key={ch.id} className="voice-channel-group">
-              <button
-                className="channel-item voice"
-                onClick={() => handleJoinVoice(ch.id)}
-              >
-                <span className="channel-hash">🔊</span>
-                {ch.name}
-              </button>
+              <div className="channel-row">
+                <button
+                  className="channel-item voice"
+                  onClick={() => handleJoinVoice(ch.id)}
+                >
+                  <span className="channel-hash">🔊</span>
+                  {ch.name}
+                </button>
+                {isOwner && (
+                  <button
+                    className="icon-btn small channel-edit-btn"
+                    title="Editar nome do canal"
+                    onClick={() => handleRenameChannel(ch)}
+                  >
+                    ✎
+                  </button>
+                )}
+              </div>
               {/* Mostrar usuários conectados no canal de voz */}
               {voiceChannelPeers[ch.id] && voiceChannelPeers[ch.id].length > 0 && (
                 <div className="voice-channel-users">
@@ -413,48 +474,6 @@ export default function ServersPanel() {
           ))}
         </div>
 
-        {/* Adicionar canal (apenas dono) */}
-        {isOwner && (
-          <div className="add-channel">
-            {showNewChannel ? (
-              <form onSubmit={handleCreateChannel} className="add-channel-form">
-                <input
-                  type="text"
-                  value={newChannelName}
-                  onChange={(e) => setNewChannelName(e.target.value)}
-                  placeholder={t('servers.channelName')}
-                  autoFocus
-                />
-                <div className="channel-type-select">
-                  <label>
-                    <input
-                      type="radio"
-                      checked={newChannelType === 'text'}
-                      onChange={() => setNewChannelType('text')}
-                    />
-                    {t('servers.text')}
-                  </label>
-                  <label>
-                    <input
-                      type="radio"
-                      checked={newChannelType === 'voice'}
-                      onChange={() => setNewChannelType('voice')}
-                    />
-                    {t('servers.voice')}
-                  </label>
-                </div>
-                <div className="channel-form-actions">
-                  <button type="submit" className="btn-small accept">✓</button>
-                  <button type="button" className="btn-small reject" onClick={() => setShowNewChannel(false)}>✕</button>
-                </div>
-              </form>
-            ) : (
-              <button className="btn-link" onClick={() => setShowNewChannel(true)}>
-                + {t('servers.createChannel')}
-              </button>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Área de chat */}
@@ -465,15 +484,6 @@ export default function ServersPanel() {
             {currentServer.channels.find((c) => c.id === currentChannel)?.name || 'canal'}
           </span>
           <span className="chat-header-badge">{t('servers.encryptedServer')}</span>
-          {!isOwner && (
-            <button
-              className={`icon-btn small member-list-toggle ${showMemberList ? 'active' : ''}`}
-              title={t('servers.memberList')}
-              onClick={() => setShowMemberList(!showMemberList)}
-            >
-              👥
-            </button>
-          )}
         </div>
 
         <div className="chat-body-wrapper">
@@ -497,7 +507,12 @@ export default function ServersPanel() {
                     <span className="message-time">{formatTime(msg.time)}</span>
                   </div>
                   {msg.mediaType === 'image' && msg.mediaUrl && (
-                    <img className="message-media message-media-image" src={msg.mediaUrl} alt={msg.fileName || 'imagem'} />
+                    <img
+                      className="message-media message-media-image clickable"
+                      src={msg.mediaUrl}
+                      alt={msg.fileName || 'imagem'}
+                      onClick={() => setLightboxImage(msg.mediaUrl || null)}
+                    />
                   )}
                   {msg.mediaType === 'video' && msg.mediaUrl && (
                     <video className="message-media message-media-video" src={msg.mediaUrl} controls preload="metadata" />
@@ -589,6 +604,17 @@ export default function ServersPanel() {
             </svg>
           </button>
         </form>
+
+        {lightboxImage && (
+          <div className="media-lightbox" onClick={() => setLightboxImage(null)}>
+            <img
+              src={lightboxImage}
+              alt="Imagem ampliada"
+              className="media-lightbox-image"
+              onClick={(event) => event.stopPropagation()}
+            />
+          </div>
+        )}
       </div>
     </div>
   )

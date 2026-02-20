@@ -564,10 +564,156 @@ type MediaPayload = {
   fileName?: string
 }
 
+type ChunkedMediaRef = {
+  id: string
+  chunks: number
+  scope: string
+}
+
+const MAX_INLINE_MEDIA_DATAURL_LENGTH = 320_000
+const MEDIA_CHUNK_LENGTH = 120_000
+const MEDIA_CHUNK_FETCH_ATTEMPTS = 8
+const MEDIA_CHUNK_FETCH_INTERVAL_MS = 220
+const mediaDataUrlCache = new Map<string, string>()
+
+function splitIntoChunks(content: string, chunkSize: number): string[] {
+  const chunks: string[] = []
+  for (let index = 0; index < content.length; index += chunkSize) {
+    chunks.push(content.slice(index, index + chunkSize))
+  }
+  return chunks
+}
+
+function putNode(node: any, value: any, timeoutMs = 12000): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let done = false
+    const timer = setTimeout(() => {
+      if (done) return
+      done = true
+      reject(new Error('Tempo esgotado ao salvar mídia'))
+    }, timeoutMs)
+
+    node.put(value, (ack: any) => {
+      if (done) return
+      done = true
+      clearTimeout(timer)
+
+      if (ack?.err) {
+        reject(new Error(String(ack.err)))
+        return
+      }
+
+      resolve()
+    })
+  })
+}
+
+function readNode(node: any, timeoutMs = 5000): Promise<any> {
+  return new Promise((resolve) => {
+    let done = false
+
+    node.once((data: any) => {
+      if (done) return
+      done = true
+      resolve(data)
+    })
+
+    setTimeout(() => {
+      if (done) return
+      done = true
+      resolve(undefined)
+    }, timeoutMs)
+  })
+}
+
+async function readNodeWithRetry(node: any): Promise<any> {
+  for (let attempt = 0; attempt < MEDIA_CHUNK_FETCH_ATTEMPTS; attempt++) {
+    const value = await readNode(node)
+    if (value !== undefined && value !== null) {
+      return value
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, MEDIA_CHUNK_FETCH_INTERVAL_MS))
+  }
+
+  return undefined
+}
+
+async function storeChunkedMedia(scope: string, media: MediaPayload, secretKey: string): Promise<ChunkedMediaRef | null> {
+  const chunks = splitIntoChunks(media.dataUrl, MEDIA_CHUNK_LENGTH)
+  if (chunks.length === 0) return null
+
+  const mediaId = `med-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  const mediaNode = gun.get('media').get(scope).get(mediaId)
+
+  try {
+    for (let index = 0; index < chunks.length; index++) {
+      const encryptedChunk = await SEA.encrypt(chunks[index], secretKey)
+      await putNode(mediaNode.get(String(index)), encryptedChunk)
+    }
+
+    await putNode(mediaNode.get('_meta'), {
+      chunks: chunks.length,
+      fileName: media.fileName,
+      type: media.type,
+      time: Date.now(),
+    })
+
+    return {
+      id: mediaId,
+      chunks: chunks.length,
+      scope,
+    }
+  } catch (error) {
+    console.error('Falha ao salvar mídia em partes:', error)
+    return null
+  }
+}
+
+async function loadChunkedMedia(mediaRef: ChunkedMediaRef, secretKey: string): Promise<string | undefined> {
+  const cacheKey = `${mediaRef.scope}:${mediaRef.id}`
+  if (mediaDataUrlCache.has(cacheKey)) {
+    return mediaDataUrlCache.get(cacheKey)
+  }
+
+  const mediaNode = gun.get('media').get(mediaRef.scope).get(mediaRef.id)
+  const restoredChunks: string[] = []
+
+  for (let index = 0; index < mediaRef.chunks; index++) {
+    const encryptedChunk = await readNodeWithRetry(mediaNode.get(String(index)))
+    if (!encryptedChunk) {
+      return undefined
+    }
+
+    try {
+      const decryptedChunk = await SEA.decrypt(encryptedChunk, secretKey)
+      if (typeof decryptedChunk !== 'string') {
+        return undefined
+      }
+      restoredChunks.push(decryptedChunk)
+    } catch {
+      return undefined
+    }
+  }
+
+  const dataUrl = restoredChunks.join('')
+  if (!dataUrl) return undefined
+
+  mediaDataUrlCache.set(cacheKey, dataUrl)
+  return dataUrl
+}
+
 function buildMessagePayload(
   text: string,
-  media?: MediaPayload
-): string | { text: string; mediaType: 'image' | 'video'; mediaUrl: string; fileName?: string } {
+  media?: MediaPayload,
+  mediaRef?: ChunkedMediaRef
+): string | {
+  text: string
+  mediaType: 'image' | 'video'
+  mediaUrl?: string
+  fileName?: string
+  mediaRef?: ChunkedMediaRef
+} {
   if (!media) {
     return text
   }
@@ -575,9 +721,32 @@ function buildMessagePayload(
   return {
     text,
     mediaType: media.type,
-    mediaUrl: media.dataUrl,
+    mediaUrl: mediaRef ? undefined : media.dataUrl,
     fileName: media.fileName,
+    mediaRef,
   }
+}
+
+async function buildEncryptedPayload(
+  text: string,
+  media: MediaPayload | undefined,
+  mediaScope: string,
+  encryptionKey: string
+) {
+  if (!media) {
+    return text
+  }
+
+  if (media.dataUrl.length <= MAX_INLINE_MEDIA_DATAURL_LENGTH) {
+    return buildMessagePayload(text, media)
+  }
+
+  const mediaRef = await storeChunkedMedia(mediaScope, media, encryptionKey)
+  if (!mediaRef) {
+    return buildMessagePayload(text, media)
+  }
+
+  return buildMessagePayload(text, media, mediaRef)
 }
 
 function parseMessagePayload(decrypted: any): {
@@ -585,6 +754,7 @@ function parseMessagePayload(decrypted: any): {
   mediaType?: 'image' | 'video'
   mediaUrl?: string
   fileName?: string
+  mediaRef?: ChunkedMediaRef
 } {
   if (typeof decrypted === 'string') {
     return { text: decrypted }
@@ -600,10 +770,34 @@ function parseMessagePayload(decrypted: any): {
       mediaType,
       mediaUrl: typeof decrypted.mediaUrl === 'string' ? decrypted.mediaUrl : undefined,
       fileName: typeof decrypted.fileName === 'string' ? decrypted.fileName : undefined,
+      mediaRef:
+        decrypted.mediaRef &&
+        typeof decrypted.mediaRef === 'object' &&
+        typeof decrypted.mediaRef.id === 'string' &&
+        typeof decrypted.mediaRef.scope === 'string' &&
+        typeof decrypted.mediaRef.chunks === 'number'
+          ? {
+              id: decrypted.mediaRef.id,
+              scope: decrypted.mediaRef.scope,
+              chunks: decrypted.mediaRef.chunks,
+            }
+          : undefined,
     }
   }
 
   return { text: '' }
+}
+
+async function hydrateMediaPayload(parsed: ReturnType<typeof parseMessagePayload>, secretKey: string) {
+  if (!parsed.mediaRef || parsed.mediaUrl) {
+    return parsed
+  }
+
+  const mediaUrl = await loadChunkedMedia(parsed.mediaRef, secretKey)
+  return {
+    ...parsed,
+    mediaUrl,
+  }
 }
 
 function fallbackMediaText(mediaType?: 'image' | 'video') {
@@ -651,11 +845,12 @@ export async function sendDM(targetPub: string, text: string, media?: MediaPaylo
     return
   }
 
-  const payload = buildMessagePayload(text, media)
+  const convoId = getDMConversationId(me.pub, targetPub)
+  const mediaScope = `dm:${convoId}`
+  const payload = await buildEncryptedPayload(text, media, mediaScope, secret)
   const encText = await SEA.encrypt(payload, secret)
   const sig = await SEA.sign(encText, user._.sea)
 
-  const convoId = getDMConversationId(me.pub, targetPub)
   const msgId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 
   gun.get('dms').get(convoId).get(msgId).put({
@@ -686,14 +881,15 @@ export function listenDMs(targetPub: string, callback: (messages: Message[]) => 
       if (!data || !data.text || !data.from) return
 
       // Descriptografar de forma segura
-      SEA.decrypt(data.text, secret).then((decrypted: any) => {
+      SEA.decrypt(data.text, secret).then(async (decrypted: any) => {
         const parsed = parseMessagePayload(decrypted)
+        const hydrated = await hydrateMediaPayload(parsed, secret)
         messages[key] = {
           id: data.id || key,
-          text: parsed.text || fallbackMediaText(parsed.mediaType),
-          mediaType: parsed.mediaType,
-          mediaUrl: parsed.mediaUrl,
-          fileName: parsed.fileName,
+          text: hydrated.text || fallbackMediaText(hydrated.mediaType),
+          mediaType: hydrated.mediaType,
+          mediaUrl: hydrated.mediaUrl,
+          fileName: hydrated.fileName,
           from: data.from,
           fromAlias: data.fromAlias || 'Anônimo',
           time: data.time || Date.now(),
@@ -970,8 +1166,9 @@ export async function sendServerMessage(serverId: string, channelId: string, tex
   if (!me) return
 
   const serverKey = serverId
+  const mediaScope = `srv:${serverId}:${channelId}`
 
-  const payload = buildMessagePayload(text, media)
+  const payload = await buildEncryptedPayload(text, media, mediaScope, serverKey)
   const encText = await SEA.encrypt(payload, serverKey)
   const sig = await SEA.sign(encText, user._.sea)
   const msgId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
@@ -1005,14 +1202,15 @@ export function listenServerMessages(serverId: string, channelId: string, callba
         }
         return null
       })
-      .then((decrypted: any) => {
+      .then(async (decrypted: any) => {
         const parsed = parseMessagePayload(decrypted)
+        const hydrated = await hydrateMediaPayload(parsed, serverId)
         messages[key] = {
           id: data.id || key,
-          text: parsed.text || fallbackMediaText(parsed.mediaType),
-          mediaType: parsed.mediaType,
-          mediaUrl: parsed.mediaUrl,
-          fileName: parsed.fileName,
+          text: hydrated.text || fallbackMediaText(hydrated.mediaType),
+          mediaType: hydrated.mediaType,
+          mediaUrl: hydrated.mediaUrl,
+          fileName: hydrated.fileName,
           from: data.from,
           fromAlias: data.fromAlias || 'Anônimo',
           time: data.time || Date.now(),
@@ -1040,6 +1238,22 @@ export function createServerChannel(serverId: string, name: string, type: 'text'
     name,
     type,
   })
+}
+
+export function renameServerChannel(serverId: string, channelId: string, name: string, type?: 'text' | 'voice') {
+  const trimmedName = name.trim()
+  if (!trimmedName) return
+
+  const payload: Record<string, any> = {
+    id: channelId,
+    name: trimmedName,
+  }
+
+  if (type) {
+    payload.type = type
+  }
+
+  gun.get('servers').get(serverId).get('channels').get(channelId).put(payload)
 }
 
 // ─── Grupos ─────────────────────────────────────────────────────────────────────
@@ -1157,7 +1371,8 @@ export async function sendGroupMessage(groupId: string, text: string, media?: Me
     })
   })
 
-  const payload = buildMessagePayload(text, media)
+  const mediaScope = `grp:${groupId}`
+  const payload = await buildEncryptedPayload(text, media, mediaScope, groupKey)
   const encText = await SEA.encrypt(payload, groupKey)
   const sig = await SEA.sign(encText, user._.sea)
   const msgId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
@@ -1181,14 +1396,15 @@ export function listenGroupMessages(groupId: string, callback: (msgs: Message[])
     gun.get('groups').get(groupId).get('messages').map().on((data: any, key: string) => {
       if (!data || !data.text || !data.from) return
 
-      SEA.decrypt(data.text, groupKey).then((decrypted: any) => {
+      SEA.decrypt(data.text, groupKey).then(async (decrypted: any) => {
         const parsed = parseMessagePayload(decrypted)
+        const hydrated = await hydrateMediaPayload(parsed, groupKey)
         messages[key] = {
           id: data.id || key,
-          text: parsed.text || fallbackMediaText(parsed.mediaType),
-          mediaType: parsed.mediaType,
-          mediaUrl: parsed.mediaUrl,
-          fileName: parsed.fileName,
+          text: hydrated.text || fallbackMediaText(hydrated.mediaType),
+          mediaType: hydrated.mediaType,
+          mediaUrl: hydrated.mediaUrl,
+          fileName: hydrated.fileName,
           from: data.from,
           fromAlias: data.fromAlias || 'Anônimo',
           time: data.time || Date.now(),

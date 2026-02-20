@@ -1012,6 +1012,24 @@ input, button, textarea {
   background: rgba(16, 185, 129, 0.15);
 }
 
+.channel-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.channel-row .channel-item {
+  flex: 1;
+}
+
+.channel-edit-btn {
+  opacity: 0.7;
+}
+
+.channel-edit-btn:hover {
+  opacity: 1;
+}
+
 .channel-hash {
   font-size: 16px;
   color: var(--text-muted);
@@ -1277,6 +1295,10 @@ input, button, textarea {
   object-fit: contain;
 }
 
+.message-media-image.clickable {
+  cursor: zoom-in;
+}
+
 .message-media-video {
   max-height: 320px;
 }
@@ -1315,6 +1337,25 @@ input, button, textarea {
 
 .chat-media-remove-btn:hover {
   background: var(--bg-hover);
+}
+
+.media-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  background: rgba(0, 0, 0, 0.78);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.media-lightbox-image {
+  max-width: min(92vw, 1200px);
+  max-height: 88vh;
+  border-radius: var(--radius);
+  object-fit: contain;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.45);
 }
 
 .chat-input-container {
@@ -1932,6 +1973,52 @@ input, button, textarea {
 .server-header-actions {
   display: flex;
   gap: 4px;
+  position: relative;
+}
+
+.server-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 220px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--bg-surface);
+  border-radius: var(--radius);
+  padding: 6px;
+  z-index: 40;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35);
+}
+
+.server-dropdown-item {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  text-align: left;
+  padding: 8px 10px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.server-dropdown-item:hover,
+.server-dropdown-item.active {
+  background: var(--bg-hover);
+}
+
+.server-dropdown-item.danger {
+  color: var(--red);
+}
+
+.server-dropdown-item.danger:hover {
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.server-dropdown-divider {
+  height: 1px;
+  background: var(--bg-surface);
+  margin: 6px 4px;
 }
 
 /* ─── Voice Channel Users (sidebar) ──────────────────────────────────────────── */

@@ -18,6 +18,7 @@ export default function ChatView() {
 
   const [input, setInput] = useState('')
   const [selectedMedia, setSelectedMedia] = useState<{ type: 'image' | 'video'; dataUrl: string; fileName?: string } | null>(null)
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null)
   const messagesEnd = useRef<HTMLDivElement>(null)
   const mediaInputRef = useRef<HTMLInputElement>(null)
 
@@ -154,7 +155,12 @@ export default function ChatView() {
                     <span className="message-time">{formatTime(msg.time)}</span>
                   </div>
                   {msg.mediaType === 'image' && msg.mediaUrl && (
-                    <img className="message-media message-media-image" src={msg.mediaUrl} alt={msg.fileName || 'imagem'} />
+                    <img
+                      className="message-media message-media-image clickable"
+                      src={msg.mediaUrl}
+                      alt={msg.fileName || 'imagem'}
+                      onClick={() => setLightboxImage(msg.mediaUrl || null)}
+                    />
                   )}
                   {msg.mediaType === 'video' && msg.mediaUrl && (
                     <video className="message-media message-media-video" src={msg.mediaUrl} controls preload="metadata" />
@@ -217,6 +223,17 @@ export default function ChatView() {
           </svg>
         </button>
       </form>
+
+      {lightboxImage && (
+        <div className="media-lightbox" onClick={() => setLightboxImage(null)}>
+          <img
+            src={lightboxImage}
+            alt="Imagem ampliada"
+            className="media-lightbox-image"
+            onClick={(event) => event.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   )
 }
