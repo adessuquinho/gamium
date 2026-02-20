@@ -15,10 +15,44 @@ export default function LoginScreen() {
   const [recoveryPhrase, setRecoveryPhrase] = useState<string | null>(null)
   const [copiedRecovery, setCopiedRecovery] = useState(false)
   const [recoveryInput, setRecoveryInput] = useState('')
-  const [pendingLoginAfterRecovery, setPendingLoginAfterRecovery] = useState(false)
   const [appIcon, setAppIcon] = useState<string | null>(null)
+  const [registeredIdentity, setRegisteredIdentity] = useState<{ alias: string; pub: string; epub: string } | null>(null)
+  const [confirmSaved, setConfirmSaved] = useState(false)
 
   const passwordValid = password.length >= 16
+
+  async function waitForCurrentUser(timeoutMs = 5000) {
+    const start = Date.now()
+
+    while (Date.now() - start < timeoutMs) {
+      const current = getCurrentUser()
+      if (current?.pub) return current
+      await new Promise((resolve) => setTimeout(resolve, 120))
+    }
+
+    return null
+  }
+
+  async function applyAuthenticatedUser(preferredAlias?: string) {
+    let currentUser = await waitForCurrentUser(3500)
+
+    if (!currentUser && alias.trim() && password) {
+      const retry = await login(alias.trim(), password)
+      if (retry.ok) {
+        currentUser = await waitForCurrentUser(3500)
+      }
+    }
+
+    if (!currentUser) return false
+
+    setUser({
+      alias: currentUser.alias || preferredAlias || alias.trim() || 'Usuário',
+      pub: currentUser.pub,
+      epub: currentUser.epub,
+    })
+
+    return true
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -95,22 +129,37 @@ export default function LoginScreen() {
 
           // Se for novo registro, mostra recovery phrase
           if (isRegister && result.recoveryPhrase) {
+            // Capture identity from register result (captured immediately in auth callback)
+            if (result.identity?.pub && result.identity?.epub) {
+              setRegisteredIdentity({
+                alias: result.identity.alias || alias.trim() || 'Usuário',
+                pub: result.identity.pub,
+                epub: result.identity.epub,
+              })
+            } else {
+              // Fallback: poll Gun user.is (unlikely needed now)
+              const currentUser = await waitForCurrentUser(3000)
+              if (currentUser?.pub && currentUser?.epub) {
+                setRegisteredIdentity({
+                  alias: currentUser.alias || alias.trim() || 'Usuário',
+                  pub: currentUser.pub,
+                  epub: currentUser.epub,
+                })
+              }
+            }
+            console.log('[Gamium] Identity captured for post-registration:', !!result.identity?.pub)
             setRecoveryPhrase(result.recoveryPhrase)
           } else {
-            const currentUser = getCurrentUser()
-            if (currentUser) {
-              setUser({
-                alias: currentUser.alias,
-                pub: currentUser.pub,
-                epub: currentUser.epub,
-              })
+            const applied = await applyAuthenticatedUser(alias.trim())
+            if (!applied) {
+              setError(t('login.connectionError'))
             }
           }
         } else {
           if (isRegister && result.created && result.recoveryPhrase) {
-            setPendingLoginAfterRecovery(true)
+            // Account was created but auth failed — still show recovery phrase
+            // handleRecoveryPhraseDone will re-login automatically
             setRecoveryPhrase(result.recoveryPhrase)
-            setError(t('login.accountCreatedLoginNow'))
           } else {
             setError(result.error || t('login.errorUnknown'))
           }
@@ -131,22 +180,52 @@ export default function LoginScreen() {
     }
   }
 
-  function handleRecoveryPhraseDone() {
-    if (pendingLoginAfterRecovery) {
-      setPendingLoginAfterRecovery(false)
-      setRecoveryPhrase(null)
-      setIsRegister(false)
-      setError(t('login.accountCreatedLoginNow'))
-      return
-    }
+  async function handleRecoveryPhraseDone() {
+    setLoading(true)
+    setError('')
+    try {
+      // Strategy 1: Use identity captured during registration
+      if (registeredIdentity?.pub && registeredIdentity?.epub) {
+        console.log('[Gamium] Entering app with registeredIdentity:', registeredIdentity.pub.slice(0, 12))
+        setUser(registeredIdentity)
+        return
+      }
 
-    const currentUser = getCurrentUser()
-    if (currentUser) {
-      setUser({
-        alias: currentUser.alias,
-        pub: currentUser.pub,
-        epub: currentUser.epub,
-      })
+      // Strategy 2: Check if Gun user.is is already populated
+      const currentUser = getCurrentUser()
+      if (currentUser?.pub && currentUser?.epub) {
+        console.log('[Gamium] Entering app with getCurrentUser:', currentUser.pub.slice(0, 12))
+        setUser({
+          alias: currentUser.alias || alias.trim() || 'Usuário',
+          pub: currentUser.pub,
+          epub: currentUser.epub,
+        })
+        return
+      }
+
+      // Strategy 3: Fresh login with credentials still in state
+      if (alias.trim() && password) {
+        console.log('[Gamium] Re-authenticating with stored credentials...')
+        const loginResult = await login(alias.trim(), password)
+        if (loginResult.ok) {
+          await window.gamiumAPI.storage.setKey(password)
+          const freshUser = await waitForCurrentUser(6000)
+          if (freshUser?.pub && freshUser?.epub) {
+            console.log('[Gamium] Entering app after re-login:', freshUser.pub.slice(0, 12))
+            setUser({
+              alias: freshUser.alias || alias.trim() || 'Usuário',
+              pub: freshUser.pub,
+              epub: freshUser.epub,
+            })
+            return
+          }
+        }
+      }
+
+      console.warn('[Gamium] All auth strategies failed in handleRecoveryPhraseDone')
+      setError(t('login.connectionError'))
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -205,21 +284,17 @@ export default function LoginScreen() {
               <label className="checkbox-label">
                 <input 
                   type="checkbox" 
-                  required
-                  onChange={(e) => {
-                    // Habilitará o botão quando clicado
-                    const btn = document.querySelector('.btn-recovery-done') as HTMLButtonElement
-                    if (btn) btn.disabled = !e.target.checked
-                  }}
+                  checked={confirmSaved}
+                  onChange={(e) => setConfirmSaved(e.target.checked)}
                 />
                 <span>{t('login.confirmSaved')}</span>
               </label>
               <button 
                 className="btn-recovery-done btn-primary"
                 onClick={handleRecoveryPhraseDone}
-                disabled
+                disabled={!confirmSaved || loading}
               >
-                {pendingLoginAfterRecovery ? t('login.continueLogin') : t('login.continueApp')}
+                {loading ? t('login.connecting') : t('login.continueApp')}
               </button>
             </div>
           </div>

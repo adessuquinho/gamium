@@ -13,10 +13,12 @@ export default function GroupsPanel() {
 
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
+  const [selectedMedia, setSelectedMedia] = useState<{ type: 'image' | 'video'; dataUrl: string; fileName?: string } | null>(null)
   const [showCreate, setShowCreate] = useState(false)
   const [groupName, setGroupName] = useState('')
   const [selectedMembers, setSelectedMembers] = useState<string[]>([])
   const messagesEnd = useRef<HTMLDivElement>(null)
+  const mediaInputRef = useRef<HTMLInputElement>(null)
 
   const currentGroup = groups.find((g) => g.id === activeView.groupId)
 
@@ -34,10 +36,40 @@ export default function GroupsPanel() {
 
   async function handleSend(e: React.FormEvent) {
     e.preventDefault()
-    if (!input.trim() || !currentGroup) return
+    if ((!input.trim() && !selectedMedia) || !currentGroup) return
 
-    await sendGroupMessage(currentGroup.id, input.trim())
+    await sendGroupMessage(currentGroup.id, input.trim(), selectedMedia || undefined)
     setInput('')
+    setSelectedMedia(null)
+  }
+
+  function handleMediaSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+      alert('Selecione apenas imagem ou vídeo.')
+      e.target.value = ''
+      return
+    }
+
+    if (file.size > 15 * 1024 * 1024) {
+      alert('Arquivo muito grande. Limite de 15MB.')
+      e.target.value = ''
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      const dataUrl = reader.result as string
+      setSelectedMedia({
+        type: file.type.startsWith('video/') ? 'video' : 'image',
+        dataUrl,
+        fileName: file.name,
+      })
+    }
+    reader.readAsDataURL(file)
+    e.target.value = ''
   }
 
   async function handleCreate(e: React.FormEvent) {
@@ -192,21 +224,60 @@ export default function GroupsPanel() {
                   <span className="message-author">{msg.fromAlias}</span>
                   <span className="message-time">{formatTime(msg.time)}</span>
                 </div>
-                <div className="message-text">{msg.text}</div>
+                {msg.mediaType === 'image' && msg.mediaUrl && (
+                  <img className="message-media message-media-image" src={msg.mediaUrl} alt={msg.fileName || 'imagem'} />
+                )}
+                {msg.mediaType === 'video' && msg.mediaUrl && (
+                  <video className="message-media message-media-video" src={msg.mediaUrl} controls preload="metadata" />
+                )}
+                {msg.text && <div className="message-text">{msg.text}</div>}
               </div>
             </div>
           ))}
           <div ref={messagesEnd} />
         </div>
 
+        {selectedMedia && (
+          <div className="chat-media-preview">
+            {selectedMedia.type === 'image' ? (
+              <img src={selectedMedia.dataUrl} alt={selectedMedia.fileName || 'preview'} className="chat-media-preview-content" />
+            ) : (
+              <video src={selectedMedia.dataUrl} className="chat-media-preview-content" controls preload="metadata" />
+            )}
+            <button
+              type="button"
+              className="chat-media-remove-btn"
+              onClick={() => setSelectedMedia(null)}
+              title="Remover anexo"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         <form className="chat-input-container" onSubmit={handleSend}>
+          <input
+            ref={mediaInputRef}
+            type="file"
+            accept="image/*,video/*"
+            style={{ display: 'none' }}
+            onChange={handleMediaSelect}
+          />
+          <button
+            type="button"
+            className="chat-attach-btn"
+            onClick={() => mediaInputRef.current?.click()}
+            title="Anexar imagem/vídeo"
+          >
+            📎
+          </button>
           <input
             className="chat-input"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={t('groups.messageIn', { name: currentGroup.name })}
           />
-          <button type="submit" className="chat-send-btn" disabled={!input.trim()}>
+          <button type="submit" className="chat-send-btn" disabled={!input.trim() && !selectedMedia}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
               <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
             </svg>

@@ -11,7 +11,7 @@
 import Gun from 'gun'
 import 'gun/sea'
 import { generateMnemonic, validateMnemonic } from 'bip39'
-import type { Message, Server, Channel, Group, FriendRequest } from '../shared/types'
+import type { Message, Server, Channel, Group, FriendRequest, UserIdentity } from '../shared/types'
 import { useAppStore } from './store'
 
 // ─── Tipos locais do Gun ────────────────────────────────────────────────────────
@@ -33,6 +33,8 @@ const GUN_RELAYS = [
   'https://gun-manhattan.herokuapp.com/gun',
   'https://gun-eu.herokuapp.com/gun',
   'https://gun-us.herokuapp.com/gun',
+  'https://relay.peer.ooo/gun',
+  'https://peer.wallie.io/gun',
 ]
 
 // ─── Inicialização ──────────────────────────────────────────────────────────────
@@ -72,18 +74,6 @@ function clearGunAuthStorage() {
   } catch {
     // Ignore session storage cleanup errors.
   }
-
-  try {
-    for (let index = localStorage.length - 1; index >= 0; index--) {
-      const key = localStorage.key(index)
-      if (!key) continue
-      if (key.includes('gun/')) {
-        localStorage.removeItem(key)
-      }
-    }
-  } catch {
-    // Ignore local storage cleanup errors.
-  }
 }
 
 async function resetAuthState() {
@@ -121,6 +111,24 @@ function withAuthTimeout<T>(promise: Promise<T>, timeoutMs = 15000): Promise<T> 
   })
 }
 
+async function waitForUserIdentity(timeoutMs = 5000): Promise<UserIdentity | null> {
+  const start = Date.now()
+
+  while (Date.now() - start < timeoutMs) {
+    const current = user?.is
+    if (current?.pub && current?.epub) {
+      return {
+        alias: current.alias || 'Usuário',
+        pub: current.pub,
+        epub: current.epub,
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 120))
+  }
+
+  return null
+}
+
 // ─── Autenticação ───────────────────────────────────────────────────────────────
 
 export async function register(
@@ -132,6 +140,7 @@ export async function register(
   pub?: string
   recoveryPhrase?: string
   created?: boolean
+  identity?: UserIdentity
 }> {
   ensureGunReady()
   await resetAuthState()
@@ -155,6 +164,27 @@ export async function register(
                 return
               }
 
+              // Capture identity IMMEDIATELY from the auth callback
+              // user.is is guaranteed populated by Gun.js at this point
+              // authAck.sea is a fallback containing { pub, priv, epub, epriv }
+              const immediatePub = user.is?.pub || authAck?.sea?.pub || authAck?.put?.pub || ''
+              const immediateEpub = user.is?.epub || authAck?.sea?.epub || authAck?.put?.epub || ''
+              const immediateAlias = user.is?.alias || alias
+
+              const identity: UserIdentity | undefined =
+                immediatePub && immediateEpub
+                  ? { alias: immediateAlias, pub: immediatePub, epub: immediateEpub }
+                  : undefined
+
+              // Resolve immediately with captured identity — don't wait for polling
+              resolve({
+                ok: true,
+                pub: immediatePub,
+                recoveryPhrase,
+                identity,
+              })
+
+              // Fire-and-forget: write profile & recovery bundle in background
               ;(async () => {
                 try {
                   setupUserProfile(alias)
@@ -162,11 +192,6 @@ export async function register(
                 } catch {
                   // Keep registration successful even if recovery bundle update fails.
                 }
-                resolve({
-                  ok: true,
-                  pub: user.is?.pub,
-                  recoveryPhrase,
-                })
               })()
             })
           })()
@@ -185,22 +210,46 @@ export async function register(
 
 export async function login(alias: string, password: string): Promise<{ ok: boolean; error?: string; pub?: string }> {
   ensureGunReady()
-  await resetAuthState()
-  try {
-    return await withAuthTimeout(
-      new Promise((resolve) => {
-        user.auth(alias, password, (ack: any) => {
-          if (ack.err) {
-            resolve({ ok: false, error: ack.err })
-          } else {
-            resolve({ ok: true, pub: user.is?.pub })
-          }
-        })
-      })
-    )
-  } catch (error: any) {
-    return { ok: false, error: error?.message || 'Falha ao entrar.' }
+
+  // Try up to 3 times — Gun.js may need time to load local data/connect to peers
+  const MAX_ATTEMPTS = 3
+  let lastError = ''
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    await resetAuthState()
+
+    // Give Gun more time to stabilize on retries
+    if (attempt > 1) {
+      await new Promise((resolve) => setTimeout(resolve, 500 * attempt))
+    }
+
+    try {
+      const result = await withAuthTimeout(
+        new Promise<{ ok: boolean; error?: string; pub?: string }>((resolve) => {
+          user.auth(alias, password, (ack: any) => {
+            if (ack.err) {
+              resolve({ ok: false, error: ack.err })
+            } else {
+              resolve({ ok: true, pub: user.is?.pub })
+            }
+          })
+        }),
+        12000
+      )
+
+      if (result.ok) {
+        return result
+      }
+
+      lastError = result.error || 'Auth failed'
+      console.warn(`[Gamium] Login attempt ${attempt}/${MAX_ATTEMPTS} failed:`, lastError)
+    } catch (error: any) {
+      lastError = error?.message || 'Falha ao entrar.'
+      console.warn(`[Gamium] Login attempt ${attempt}/${MAX_ATTEMPTS} error:`, lastError)
+    }
   }
+
+  return { ok: false, error: lastError }
 }
 
 /**
@@ -509,6 +558,60 @@ function getDMConversationId(pub1: string, pub2: string): string {
 // Cache de segredos compartilhados para evitar recálculos
 const secretCache = new Map<string, string>()
 
+type MediaPayload = {
+  type: 'image' | 'video'
+  dataUrl: string
+  fileName?: string
+}
+
+function buildMessagePayload(
+  text: string,
+  media?: MediaPayload
+): string | { text: string; mediaType: 'image' | 'video'; mediaUrl: string; fileName?: string } {
+  if (!media) {
+    return text
+  }
+
+  return {
+    text,
+    mediaType: media.type,
+    mediaUrl: media.dataUrl,
+    fileName: media.fileName,
+  }
+}
+
+function parseMessagePayload(decrypted: any): {
+  text: string
+  mediaType?: 'image' | 'video'
+  mediaUrl?: string
+  fileName?: string
+} {
+  if (typeof decrypted === 'string') {
+    return { text: decrypted }
+  }
+
+  if (decrypted && typeof decrypted === 'object') {
+    const mediaType = decrypted.mediaType === 'image' || decrypted.mediaType === 'video'
+      ? decrypted.mediaType
+      : undefined
+
+    return {
+      text: typeof decrypted.text === 'string' ? decrypted.text : '',
+      mediaType,
+      mediaUrl: typeof decrypted.mediaUrl === 'string' ? decrypted.mediaUrl : undefined,
+      fileName: typeof decrypted.fileName === 'string' ? decrypted.fileName : undefined,
+    }
+  }
+
+  return { text: '' }
+}
+
+function fallbackMediaText(mediaType?: 'image' | 'video') {
+  if (mediaType === 'image') return '[imagem]'
+  if (mediaType === 'video') return '[vídeo]'
+  return '[mensagem criptografada]'
+}
+
 async function getSharedSecret(targetPub: string): Promise<string | null> {
   if (secretCache.has(targetPub)) {
     return secretCache.get(targetPub)!
@@ -538,7 +641,7 @@ async function getSharedSecret(targetPub: string): Promise<string | null> {
   }
 }
 
-export async function sendDM(targetPub: string, text: string) {
+export async function sendDM(targetPub: string, text: string, media?: MediaPayload) {
   const me = getCurrentUser()
   if (!me) return
 
@@ -548,7 +651,8 @@ export async function sendDM(targetPub: string, text: string) {
     return
   }
 
-  const encText = await SEA.encrypt(text, secret)
+  const payload = buildMessagePayload(text, media)
+  const encText = await SEA.encrypt(payload, secret)
   const sig = await SEA.sign(encText, user._.sea)
 
   const convoId = getDMConversationId(me.pub, targetPub)
@@ -583,9 +687,13 @@ export function listenDMs(targetPub: string, callback: (messages: Message[]) => 
 
       // Descriptografar de forma segura
       SEA.decrypt(data.text, secret).then((decrypted: any) => {
+        const parsed = parseMessagePayload(decrypted)
         messages[key] = {
           id: data.id || key,
-          text: decrypted || data.text,
+          text: parsed.text || fallbackMediaText(parsed.mediaType),
+          mediaType: parsed.mediaType,
+          mediaUrl: parsed.mediaUrl,
+          fileName: parsed.fileName,
           from: data.from,
           fromAlias: data.fromAlias || 'Anônimo',
           time: data.time || Date.now(),
@@ -638,8 +746,7 @@ export function listenDMInbox(
 
     gun.get('dms').get(conversationId).map().on((msg: any, msgId: string) => {
       if (!msg || !msg.text || !msg.from) return
-      if (msg.from === me.pub) return
-      if (msg.from !== peerPub) return
+      if (msg.from !== me.pub && msg.from !== peerPub) return
 
       const uniqueId = `${conversationId}:${msg.id || msgId}`
       if (seenMessages.has(uniqueId)) return
@@ -659,11 +766,12 @@ export function listenDMInbox(
 
         SEA.decrypt(msg.text, secret)
           .then((decrypted: any) => {
+            const parsed = parseMessagePayload(decrypted)
             callback({
               peerPub,
               fromPub: msg.from,
-              fromAlias: msg.fromAlias || 'Desconhecido',
-              text: decrypted || '[mensagem criptografada]',
+              fromAlias: msg.fromAlias || (msg.from === me.pub ? me.alias : 'Desconhecido'),
+              text: parsed.text || fallbackMediaText(parsed.mediaType),
               time: msg.time || Date.now(),
             })
           })
@@ -671,7 +779,7 @@ export function listenDMInbox(
             callback({
               peerPub,
               fromPub: msg.from,
-              fromAlias: msg.fromAlias || 'Desconhecido',
+              fromAlias: msg.fromAlias || (msg.from === me.pub ? me.alias : 'Desconhecido'),
               text: '[mensagem criptografada]',
               time: msg.time || Date.now(),
             })
@@ -857,13 +965,14 @@ export function listenUserServers(callback: (servers: Server[]) => void) {
   }
 }
 
-export async function sendServerMessage(serverId: string, channelId: string, text: string) {
+export async function sendServerMessage(serverId: string, channelId: string, text: string, media?: MediaPayload) {
   const me = getCurrentUser()
   if (!me) return
 
   const serverKey = serverId
 
-  const encText = await SEA.encrypt(text, serverKey)
+  const payload = buildMessagePayload(text, media)
+  const encText = await SEA.encrypt(payload, serverKey)
   const sig = await SEA.sign(encText, user._.sea)
   const msgId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 
@@ -897,9 +1006,13 @@ export function listenServerMessages(serverId: string, channelId: string, callba
         return null
       })
       .then((decrypted: any) => {
+        const parsed = parseMessagePayload(decrypted)
         messages[key] = {
           id: data.id || key,
-          text: decrypted || data.text,
+          text: parsed.text || fallbackMediaText(parsed.mediaType),
+          mediaType: parsed.mediaType,
+          mediaUrl: parsed.mediaUrl,
+          fileName: parsed.fileName,
           from: data.from,
           fromAlias: data.fromAlias || 'Anônimo',
           time: data.time || Date.now(),
@@ -1034,7 +1147,7 @@ export function listenUserGroups(callback: (groups: Group[]) => void) {
   })
 }
 
-export async function sendGroupMessage(groupId: string, text: string) {
+export async function sendGroupMessage(groupId: string, text: string, media?: MediaPayload) {
   const me = getCurrentUser()
   if (!me) return
 
@@ -1044,7 +1157,8 @@ export async function sendGroupMessage(groupId: string, text: string) {
     })
   })
 
-  const encText = await SEA.encrypt(text, groupKey)
+  const payload = buildMessagePayload(text, media)
+  const encText = await SEA.encrypt(payload, groupKey)
   const sig = await SEA.sign(encText, user._.sea)
   const msgId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 
@@ -1068,9 +1182,13 @@ export function listenGroupMessages(groupId: string, callback: (msgs: Message[])
       if (!data || !data.text || !data.from) return
 
       SEA.decrypt(data.text, groupKey).then((decrypted: any) => {
+        const parsed = parseMessagePayload(decrypted)
         messages[key] = {
           id: data.id || key,
-          text: decrypted || data.text,
+          text: parsed.text || fallbackMediaText(parsed.mediaType),
+          mediaType: parsed.mediaType,
+          mediaUrl: parsed.mediaUrl,
+          fileName: parsed.fileName,
           from: data.from,
           fromAlias: data.fromAlias || 'Anônimo',
           time: data.time || Date.now(),

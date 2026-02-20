@@ -4,6 +4,22 @@ import path from 'path'
 import fs from 'fs'
 import crypto from 'crypto'
 
+const isDevMode = !app.isPackaged
+
+if (isDevMode) {
+  const devRoot = path.join(app.getPath('appData'), 'Gamium Dev')
+  const devSession = path.join(devRoot, 'Session')
+  const devCache = path.join(devRoot, 'Cache')
+
+  fs.mkdirSync(devSession, { recursive: true })
+  fs.mkdirSync(devCache, { recursive: true })
+
+  app.setPath('userData', devRoot)
+  app.setPath('sessionData', devSession)
+  app.commandLine.appendSwitch('disk-cache-dir', devCache)
+  app.commandLine.appendSwitch('disable-gpu-shader-disk-cache')
+}
+
 // ─── Caminhos ───────────────────────────────────────────────────────────────────
 const userDataPath = app.getPath('userData')
 const storagePath = path.join(userDataPath, 'gamium-store.enc')
@@ -47,6 +63,33 @@ function loadLocalData(): Record<string, unknown> | null {
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let isQuitting = false
+
+async function loadRenderer(windowRef: BrowserWindow): Promise<void> {
+  const distIndexPath = path.join(__dirname, '../dist/index.html')
+
+  if (!isDevMode) {
+    await windowRef.loadFile(distIndexPath)
+    return
+  }
+
+  const candidates = [
+    process.env.VITE_DEV_SERVER_URL,
+    process.env.ELECTRON_RENDERER_URL,
+    'http://localhost:5173',
+    'http://localhost:5174',
+  ].filter((url): url is string => Boolean(url))
+
+  for (const candidate of candidates) {
+    try {
+      await windowRef.loadURL(candidate)
+      return
+    } catch {
+      // Try next candidate.
+    }
+  }
+
+  await windowRef.loadFile(distIndexPath)
+}
 
 function getIconPath(): string {
   const candidates = app.isPackaged
@@ -93,6 +136,18 @@ function createWindow(): void {
     },
   })
 
+  mainWindow.webContents.on('did-fail-load', (_event, code, description, validatedURL) => {
+    console.error('[renderer] did-fail-load:', { code, description, validatedURL })
+  })
+
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    console.error('[renderer] process gone:', details)
+  })
+
+  if (isDevMode) {
+    mainWindow.webContents.openDevTools({ mode: 'detach' })
+  }
+
   // Permissões de mídia (microfone, câmera, tela)
   session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
     const allowed = ['media', 'mediaKeySystem', 'display-capture', 'screen']
@@ -118,11 +173,9 @@ function createWindow(): void {
   })
 
   // Carregar app
-  if (process.env.VITE_DEV_SERVER_URL) {
-    mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL)
-  } else {
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
-  }
+  loadRenderer(mainWindow).catch((error) => {
+    console.error('[renderer] failed to load app:', error)
+  })
 
   // Minimizar para bandeja ao fechar (ao invés de encerrar)
   mainWindow.on('close', (e) => {

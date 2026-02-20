@@ -184,7 +184,14 @@ export default function FriendsPanel() {
                   </div>
                   <div className="friend-actions">
                     {item.unread > 0 && <span className="badge">{item.unread}</span>}
-                    <button className="icon-btn" title={t('friends.msg')} onClick={() => openDM(item.peerPub)}>
+                    <button
+                      className="icon-btn"
+                      title={t('friends.msg')}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        openDM(item.peerPub)
+                      }}
+                    >
                       💬
                     </button>
                   </div>

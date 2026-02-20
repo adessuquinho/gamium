@@ -36,9 +36,11 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
+      buffer: 'buffer/',
+      process: 'process/browser',
     },
   },
   optimizeDeps: {
-    include: ['gun', 'gun/sea.js'],
+    include: ['gun', 'gun/sea.js', 'buffer/', 'process/browser'],
   },
 })

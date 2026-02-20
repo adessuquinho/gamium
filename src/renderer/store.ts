@@ -13,6 +13,7 @@ export interface DMInboxItem {
   text: string
   time: number
   unread: number
+  lastReadAt: number
 }
 
 interface AppState {
@@ -124,7 +125,14 @@ export const useAppStore = create<AppState>((set) => ({
       }
 
       const prev = s.dmInbox[item.peerPub]
-      const unreadIncrement = item.fromPub === s.user?.pub ? 0 : 1
+      const isOwnMessage = item.fromPub === s.user?.pub
+      const isCurrentOpenDM = s.activeView.section === 'dm' && s.activeView.dmPub === item.peerPub
+      const previousLastReadAt = prev?.lastReadAt || 0
+      const messageIsAfterRead = item.time > previousLastReadAt
+      const shouldIncrementUnread = !isOwnMessage && !isCurrentOpenDM && messageIsAfterRead
+
+      const shouldUpdatePreview = !prev || item.time >= prev.time
+      const nextUnread = shouldIncrementUnread ? (prev?.unread || 0) + 1 : (prev?.unread || 0)
 
       const cleanedInbox = Object.fromEntries(
         Object.entries(s.dmInbox).filter(([peerPub]) => peerPub && peerPub !== s.user?.pub)
@@ -135,11 +143,12 @@ export const useAppStore = create<AppState>((set) => ({
           ...cleanedInbox,
           [item.peerPub]: {
             peerPub: item.peerPub,
-            fromPub: item.fromPub,
-            fromAlias: item.fromAlias,
-            text: item.text,
-            time: item.time,
-            unread: (prev?.unread || 0) + unreadIncrement,
+            fromPub: shouldUpdatePreview ? item.fromPub : (prev?.fromPub || item.fromPub),
+            fromAlias: shouldUpdatePreview ? item.fromAlias : (prev?.fromAlias || item.fromAlias),
+            text: shouldUpdatePreview ? item.text : (prev?.text || item.text),
+            time: shouldUpdatePreview ? item.time : (prev?.time || item.time),
+            unread: nextUnread,
+            lastReadAt: prev?.lastReadAt || 0,
           },
         },
       }
@@ -155,6 +164,7 @@ export const useAppStore = create<AppState>((set) => ({
           [peerPub]: {
             ...current,
             unread: 0,
+            lastReadAt: Date.now(),
           },
         },
       }

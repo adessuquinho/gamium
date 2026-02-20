@@ -83,6 +83,9 @@ export interface FriendRequest {
 export interface Message {
   id: string
   text: string          // texto criptografado na rede, descriptografado na UI
+  mediaType?: 'image' | 'video'
+  mediaUrl?: string
+  fileName?: string
   from: string          // pub do remetente
   fromAlias: string
   time: number
